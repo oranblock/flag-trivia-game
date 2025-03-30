@@ -4,6 +4,8 @@
 <head>
     <title>FlagTrivia Game</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Leaflet CSS for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -487,7 +489,8 @@
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
-    <!-- No need for Maps API -->
+    <!-- Leaflet JS for interactive maps -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body id="body" class="{{ 'arabic-interface' if language == 'arabic' else '' }}">
     <div class="loading" id="loading">
@@ -523,26 +526,30 @@
         <div class="map-quiz-container">
             <h2>{{ 'ما هو علم هذه الدولة؟' if language == 'arabic' else 'What is the flag of this country?' }}</h2>
             
-            <!-- Country Map Display -->
+            <!-- Country on World Map Display -->
             <div id="map-container" class="map-container">
-                <!-- Direct map implementation - no reliance on JavaScript -->
-                <div class="country-outline">
-                    <img src="{{ url_for('static', filename='flags/' + countries[target]['code'] + '.png') }}"
-                         alt="Country silhouette"
-                         style="width: 100%; height: 100%; object-fit: contain; filter: brightness(0.1) contrast(3) grayscale(1) invert(1) drop-shadow(0 0 5px #000); opacity: 0.9; mix-blend-mode: exclusion;">
-                </div>
+                <!-- The world map will be initialized here with Leaflet -->
+                <div id="world-map" style="width: 100%; height: 100%; border-radius: 10px;"></div>
             </div>
             
             <!-- Help Text -->
             <div class="quiz-subtitle">
-                {{ 'انظر إلى شكل الدولة واختر العلم المناسب' if language == 'arabic' else 'Look at the country shape and select the correct flag' }}
+                {{ 'انظر إلى الخريطة واختر العلم المناسب للمنطقة المظللة' if language == 'arabic' else 'Look at the highlighted region on the map and choose the correct flag' }}
             </div>
             
             <!-- Hint button (appears after wrong attempts) -->
             <div class="hint-container">
                 <button id="showHintBtn" class="map-button hint-btn" style="display: none;">
-                    {{ 'إظهار تلميح' if language == 'arabic' else 'Show Hint' }}
+                    {{ 'إظهار شكل الدولة' if language == 'arabic' else 'Show Country Silhouette' }}
                 </button>
+                <div id="silhouette-container" class="country-outline" style="display: none; margin-top: 15px; height: 250px; background-color: #222; border-radius: 10px; padding: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                    <img id="silhouette-img" src="{{ partial_outline_url }}" 
+                         alt="Country silhouette hint"
+                         style="width: 100%; height: 100%; object-fit: contain;">
+                    <div style="text-align: center; color: white; margin-top: 10px; font-style: italic; font-size: 0.9em;">
+                        {{ 'هذا هو شكل الدولة' if language == 'arabic' else 'This is the shape of the country' }}
+                    </div>
+                </div>
                 <div id="hintText" class="hint-text"></div>
             </div>
             
@@ -741,22 +748,28 @@
 
         // Initialize map-based game
         function initMapGame() {
-            // Generate the map outline for the target country
             const countriesData = {{ countries|tojson }};
             const targetCountryData = countriesData[targetCountry];
             
             console.log("Initializing map game for", targetCountry, "with code", targetCode);
             
+            // Get target country coordinates
+            const targetCoords = {{ target_coords|tojson if target_coords != None else 'null' }};
+            
             if (targetCountryData) {
-                console.log("Generating map for", targetCountry, "with code", targetCountryData.code);
-                generateCountryMap(targetCountryData.code, targetCountry);
+                console.log("Initializing interactive map for", targetCountry, "with code", targetCountryData.code);
+                initWorldMap(targetCountryData.code.toUpperCase(), targetCountry, targetCoords);
             } else {
                 console.error("Country data not found for", targetCountry);
             }
             
-            // Initialize hint button
+            // Initialize hint button to show silhouette
             document.getElementById('showHintBtn').addEventListener('click', function() {
-                // Show region hint
+                // Show the partial outline silhouette
+                const silhouetteContainer = document.getElementById('silhouette-container');
+                silhouetteContainer.style.display = 'block';
+                
+                // Also show region hint in text
                 const hintText = document.getElementById('hintText');
                 if (targetCountryData && targetCountryData.region) {
                     const regionName = language === 'arabic' ? 
@@ -765,12 +778,9 @@
                     hintText.textContent = language === 'arabic' ? 
                         `تلميح: هذا البلد يقع في ${regionName}` : 
                         `Hint: This country is located in ${regionName}`;
-                } else {
-                    hintText.textContent = language === 'arabic' ? 
-                        'تلميح غير متوفر' : 'Hint not available';
+                    hintText.className = 'hint-text visible';
                 }
                 
-                hintText.className = 'hint-text visible';
                 this.disabled = true;
             });
             
@@ -987,46 +997,86 @@
             });
         }
         
-        // Generate a country outline map
-        function generateCountryMap(countryCode, countryName) {
-            console.log("Generating map for country:", countryName, "with code:", countryCode);
+        // Initialize the world map with the target country highlighted
+        let worldMap; // Global variable to hold the map instance
+        
+        function initWorldMap(countryCode, countryName, countryCoords) {
+            console.log("Initializing world map with target country:", countryName, "code:", countryCode);
             
-            const mapContainer = document.getElementById('map-container');
-            if (!mapContainer) {
-                console.error("Map container element not found!");
+            // Define the country coordinates - use global variable from app
+            const COUNTRY_COORDS = {{ country_coords|tojson if country_coords != None else '{}' }};
+            
+            // Check if Leaflet is loaded
+            if (typeof L === 'undefined') {
+                console.error('Leaflet library not loaded');
                 return;
             }
             
-            console.log("Map container found, clearing contents");
-            mapContainer.innerHTML = '';
+            // Initialize the map in the world-map container
+            worldMap = L.map('world-map', {
+                attributionControl: false,  // Remove attribution
+                zoomControl: false          // Remove zoom controls
+            }).setView([20, 0], 2);
             
-            // Create outline container
-            const outlineElement = document.createElement('div');
-            outlineElement.className = 'country-outline';
+            // Use a map style without labels
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(worldMap);
             
-            // Create an image element
-            const img = document.createElement('img');
-            img.src = `/static/flags/${countryCode}.png`;
-            img.alt = `Silhouette of ${countryName}`;
-            img.style.cssText = `
-                width: 100%;
-                height: 100%;
-                object-fit: contain;
-                filter: brightness(0.1) contrast(3) grayscale(1) invert(1) drop-shadow(0 0 5px #000);
-                opacity: 0.9;
-                mix-blend-mode: exclusion;
-            `;
+            // Add a highlight area for the target country
+            if (countryCoords) {
+                // Calculate a region around the target country
+                const regionPadding = 2; // Add some padding around the target
+                const southWest = [countryCoords.lat - regionPadding, countryCoords.lng - regionPadding];
+                const northEast = [countryCoords.lat + regionPadding, countryCoords.lng + regionPadding];
+                const bounds = L.latLngBounds(southWest, northEast);
+                
+                // Create a highlight rectangle for the region
+                const highlightArea = L.rectangle(bounds, {
+                    color: '#ffb703',
+                    weight: 2,
+                    fill: false,
+                    dashArray: '5, 5',  // Create a dashed line
+                    opacity: 0.8
+                }).addTo(worldMap);
+                
+                // Create a highlighted circle for the target country
+                const targetMarker = L.circleMarker([countryCoords.lat, countryCoords.lng], {
+                    radius: 8,
+                    fillColor: '#ffb703', // Yellow for target
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(worldMap);
+                
+                // Center the map on the target country with appropriate zoom
+                worldMap.fitBounds(bounds, {
+                    padding: [20, 20],
+                    maxZoom: countryCoords.zoom || 5
+                });
+                
+                console.log("Added highlight for target country region:", countryName);
+            } else {
+                console.warn("No coordinates found for country:", countryName);
+            }
             
-            // Add country name as a data attribute (for debugging)
-            outlineElement.setAttribute('data-country', countryName);
+            // Add a minimal legend with no country name
+            const legend = L.control({position: 'bottomright'});
             
-            // Add elements to container
-            outlineElement.appendChild(img);
-            mapContainer.appendChild(outlineElement);
+            legend.onAdd = function(map) {
+                const div = L.DomUtil.create('div', 'info legend');
+                div.innerHTML = `
+                    <div style="background-color: rgba(255,255,255,0.8); padding: 5px; border-radius: 5px;">
+                        <strong>Target Area</strong>
+                        <div><span style="display: inline-block; width: 15px; height: 15px; border-radius: 50%; background-color: #ffb703; margin-right: 5px;"></span> Find this flag</div>
+                    </div>
+                `;
+                return div;
+            };
             
-            // Add some styling to the map container for better visibility
-            mapContainer.style.backgroundColor = '#222';
-            mapContainer.style.boxShadow = '0 0 20px rgba(0,0,0,0.3)';
+            legend.addTo(worldMap);
         }
         
         // Update progress bar
@@ -1263,11 +1313,6 @@
                     'Incorrect, try again';
                 mapResult.className = 'map-result visible';
                 
-                // Show hint button after first wrong attempt
-                if (attempts === 1) {
-                    document.getElementById('showHintBtn').style.display = 'inline-block';
-                }
-                
                 // If too many attempts, show the correct answer
                 if (attempts >= 3) {
                     // Highlight the correct flag
@@ -1286,6 +1331,11 @@
                         displayCountryInfo(targetCountry);
                     }, 2000);
                 } else {
+                    // Show hint button after first wrong attempt
+                    if (attempts === 1) {
+                        document.getElementById('showHintBtn').style.display = 'inline-block';
+                    }
+                    
                     // Allow another attempt
                     answered = false;
                 }
@@ -1294,41 +1344,49 @@
         
         // Display country information
         function displayCountryInfo(countryName) {
-            const countryInfo = document.getElementById('countryInfo');
-            const countriesData = {{ countries|tojson }};
-            const countryData = countriesData[countryName];
-            
-            if (countryData) {
-                // Set flag and name
-                document.getElementById('infoFlag').src = `/static/flags/${countryData.code}.png`;
-                document.getElementById('infoName').textContent = language === 'arabic' ? 
-                    countryData.arabic : countryName;
+            try {
+                // Make sure loading spinner is hidden
+                hideLoading();
                 
-                // Set region info
-                if (countryData.region) {
-                    const regionName = language === 'arabic' ? 
-                        countryData.region.ar : countryData.region.en;
-                    document.getElementById('infoRegion').textContent = regionName;
-                } else {
-                    document.getElementById('infoRegion').textContent = 'N/A';
+                const countryInfo = document.getElementById('countryInfo');
+                const countriesData = {{ countries|tojson }};
+                const countryData = countriesData[countryName];
+                
+                if (countryData) {
+                    // Set flag and name
+                    document.getElementById('infoFlag').src = `/static/flags/${countryData.code}.png`;
+                    document.getElementById('infoName').textContent = language === 'arabic' ? 
+                        countryData.arabic : countryName;
+                    
+                    // Set region info
+                    if (countryData.region) {
+                        const regionName = language === 'arabic' ? 
+                            countryData.region.ar : countryData.region.en;
+                        document.getElementById('infoRegion').textContent = regionName;
+                    } else {
+                        document.getElementById('infoRegion').textContent = 'N/A';
+                    }
+                    
+                    // Set currency info
+                    if (countryData.currency) {
+                        const currencyCode = countryData.currency.code;
+                        const currencyName = language === 'arabic' ? 
+                            countryData.currency.name.ar : countryData.currency.name.en;
+                        document.getElementById('infoCurrency').textContent = `${currencyName} (${currencyCode})`;
+                    } else {
+                        document.getElementById('infoCurrency').textContent = 'N/A';
+                    }
+                    
+                    // Fetch additional info from API
+                    fetchAdditionalInfo(countryName);
                 }
                 
-                // Set currency info
-                if (countryData.currency) {
-                    const currencyCode = countryData.currency.code;
-                    const currencyName = language === 'arabic' ? 
-                        countryData.currency.name.ar : countryData.currency.name.en;
-                    document.getElementById('infoCurrency').textContent = `${currencyName} (${currencyCode})`;
-                } else {
-                    document.getElementById('infoCurrency').textContent = 'N/A';
-                }
-                
-                // Fetch additional info from API
-                fetchAdditionalInfo(countryName);
+                // Show the panel
+                countryInfo.style.display = 'block';
+            } catch (error) {
+                console.error("Error displaying country info:", error);
+                hideLoading(); // Make sure loading spinner is hidden even on error
             }
-            
-            // Show the panel
-            countryInfo.style.display = 'block';
         }
         
         // Go to next question
@@ -1353,35 +1411,68 @@
                   // Update without page reload
                   updateGame(data);
                   hideLoading();
+              })
+              .catch(error => {
+                  console.error("Error fetching next question:", error);
+                  document.getElementById('statusMessage').textContent = 'Error loading next question. Please try again.';
+                  document.getElementById('statusMessage').className = 'status-message wrong-message';
+                  hideLoading(); // Make sure we hide the spinner even if there's an error
               });
         }
         
         // Update game with new data
         function updateGame(data) {
-            targetCountry = data.target;
-            targetArabic = data.target_arabic;
-            targetCode = data.target_code;
-            document.getElementById('targetCountry').textContent = targetCountry;
-            document.getElementById('targetArabic').textContent = targetArabic;
-            
-            // Hide country info
-            document.getElementById('countryInfo').style.display = 'none';
-            
-            // Update map container with new country outline
-            document.getElementById('map-container').innerHTML = `
-                <div class="country-outline">
-                    <img src="/static/flags/${targetCode}.png"
-                         alt="Country silhouette"
-                         style="width: 100%; height: 100%; object-fit: contain; filter: brightness(0.1) contrast(3) grayscale(1) invert(1) drop-shadow(0 0 5px #000); opacity: 0.9; mix-blend-mode: exclusion;">
-                </div>
-            `;
-            document.getElementById('mapResult').textContent = '';
-            document.getElementById('mapResult').className = 'map-result';
-            
-            // Hide hint button and text
-            document.getElementById('showHintBtn').style.display = 'none';
-            document.getElementById('hintText').className = 'hint-text';
-            document.getElementById('hintText').textContent = '';
+            try {
+                // Check if we have the required data
+                if (!data || !data.target || !data.target_code) {
+                    throw new Error("Missing required data from server");
+                }
+                
+                targetCountry = data.target;
+                targetArabic = data.target_arabic;
+                targetCode = data.target_code;
+                document.getElementById('targetCountry').textContent = targetCountry;
+                document.getElementById('targetArabic').textContent = targetArabic;
+                
+                // Hide country info
+                document.getElementById('countryInfo').style.display = 'none';
+                
+                // Reset result message
+                document.getElementById('mapResult').textContent = '';
+                document.getElementById('mapResult').className = 'map-result';
+                
+                // Hide hint container and button
+                document.getElementById('showHintBtn').style.display = 'none';
+                document.getElementById('silhouette-container').style.display = 'none';
+                document.getElementById('hintText').className = 'hint-text';
+                document.getElementById('hintText').textContent = '';
+                
+                // Update the silhouette image for hint
+                if (data.partial_outline_url) {
+                    document.getElementById('silhouette-img').src = data.partial_outline_url;
+                }
+                
+                // Recreate the world map with the new target country
+                if (worldMap) {
+                    // Remove the old map
+                    worldMap.remove();
+                }
+                
+                // Get the map container ready
+                document.getElementById('map-container').innerHTML = '<div id="world-map" style="width: 100%; height: 100%; border-radius: 10px;"></div>';
+                
+                // Create a new map with the updated target country
+                if (data.target_coords) {
+                    initWorldMap(data.target_code.toUpperCase(), data.target, data.target_coords);
+                } else {
+                    console.error("No coordinates for target country:", data.target);
+                }
+            } catch (error) {
+                console.error("Error updating game:", error);
+                document.getElementById('statusMessage').textContent = 'Error updating the game. Please try again.';
+                document.getElementById('statusMessage').className = 'status-message wrong-message';
+                hideLoading(); // Make sure we hide the spinner if there's an error
+            }
             
             // Reset flags
             const flagContainer = document.getElementById('flagContainer');
@@ -1427,11 +1518,7 @@
             answered = false;
             attempts = 0;
             
-            // Generate new country map outline
-            const countriesData = {{ countries|tojson }};
-            if (countriesData[targetCountry]) {
-                generateCountryMap(countriesData[targetCountry].code, targetCountry);
-            }
+            // Map is already initialized in the try/catch block above
             
             // Re-initialize click handlers
             document.querySelectorAll('.flag').forEach(flag => {
@@ -1441,6 +1528,9 @@
                     checkAnswer(code);
                 });
             });
+            
+            // Make sure the loading spinner is hidden when everything is done
+            hideLoading();
         }
         
         // Helper function to find country name by code

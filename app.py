@@ -394,6 +394,90 @@ def get_flag_url(country_code):
     # If not available locally, download it
     return download_flag(country_code)
 
+def generate_country_outline(country_code, partial=False):
+    """Generate or retrieve a country outline image
+    
+    Args:
+        country_code: The two-letter country code
+        partial: If True, generates a partial (angled) silhouette for use as a hint
+    """
+    # Define file paths based on whether we want a full or partial outline
+    if partial:
+        outline_path = os.path.join(OUTLINES_DIR, f"{country_code}_partial.png")
+        outline_url = f"/static/outlines/{country_code}_partial.png"
+    else:
+        outline_path = os.path.join(OUTLINES_DIR, f"{country_code}.png")
+        outline_url = f"/static/outlines/{country_code}.png"
+    
+    # If outline already exists, just use it
+    if os.path.exists(outline_path):
+        return outline_url
+    
+    # Create directory if it doesn't exist
+    if not os.path.exists(OUTLINES_DIR):
+        os.makedirs(OUTLINES_DIR)
+    
+    # Generate outline from flag
+    flag_path = os.path.join(FLAGS_DIR, f"{country_code}.png")
+    if os.path.exists(flag_path):
+        try:
+            # This part requires PIL/Pillow library
+            from PIL import Image, ImageOps, ImageFilter, ImageEnhance, ImageDraw
+            
+            # Open flag image
+            img = Image.open(flag_path)
+            
+            # Convert to grayscale
+            img = img.convert('L')
+            
+            # Apply edge detection
+            img = img.filter(ImageFilter.FIND_EDGES)
+            
+            # Invert colors
+            img = ImageOps.invert(img)
+            
+            # Enhance contrast
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(2.0)
+            
+            # If partial silhouette is requested, create an angled mask
+            if partial:
+                # Create a blank mask the same size as the image
+                mask = Image.new('L', img.size, 0)
+                draw = ImageDraw.Draw(mask)
+                
+                # Get image dimensions
+                width, height = img.size
+                
+                # Create an angled polygon covering roughly 60% of the image
+                # Instead of a straight half, we'll do an angled reveal
+                # This creates a diagonal mask from top-left to bottom-right
+                polygon_points = [
+                    (0, 0),  # Top-left
+                    (width * 0.7, 0),  # Top-right (partial)
+                    (width * 0.3, height),  # Bottom-left (partial)
+                    (0, height)  # Bottom-left
+                ]
+                
+                # Draw the polygon on the mask (255 = white = visible area)
+                draw.polygon(polygon_points, fill=255)
+                
+                # Apply the mask to the outline image
+                img = Image.composite(img, Image.new('L', img.size, 0), mask)
+            
+            # Save the outline
+            img.save(outline_path)
+            
+            return outline_url
+            
+        except Exception as e:
+            print(f"Error generating outline for {country_code}: {e}")
+            # Fall back to using the flag with CSS filters
+            return f"/static/flags/{country_code}.png"
+    
+    # If we don't have a flag either, return a placeholder
+    return f"/static/flags/{country_code}.png"
+
 def get_random_country():
     # Make sure COUNTRIES is loaded
     if not COUNTRIES:
@@ -448,6 +532,10 @@ def index():
     # Download the flag if needed
     flag_url = get_flag_url(target_code)
     
+    # Generate or get both types of country outlines (full and partial)
+    outline_url = generate_country_outline(target_code, partial=False)
+    partial_outline_url = generate_country_outline(target_code, partial=True)
+    
     # Download all the current flags
     for code in session['current_flags']:
         get_flag_url(code)
@@ -474,6 +562,11 @@ def index():
     if 'region' in COUNTRIES[target_country]:
         target_region = COUNTRIES[target_country]['region']
     
+    # Get map coordinates for this country (for showing on the map)
+    target_coords = {}
+    if target_code.upper() in COUNTRY_COORDS:
+        target_coords = COUNTRY_COORDS[target_code.upper()]
+    
     # Game mode: map-quiz - show map first, user selects flag
     return render_template('game.html', 
                           countries=COUNTRIES,
@@ -486,6 +579,10 @@ def index():
                           FLAG_API=FLAG_API,
                           language=session['language'],
                           flag_url=flag_url,
+                          outline_url=outline_url,
+                          partial_outline_url=partial_outline_url,
+                          target_coords=target_coords,
+                          country_coords=COUNTRY_COORDS,  # Add all country coordinates
                           flags_count=flags_count,
                           game_mode="map-quiz",
                           total_countries=total_countries)
@@ -511,6 +608,10 @@ def check_answer():
     # Generate new target and flags
     new_target = get_random_country()
     new_target_code = COUNTRIES[new_target]['code']
+    
+    # Generate both types of outlines for the new target country
+    outline_url = generate_country_outline(new_target_code, partial=False)
+    partial_outline_url = generate_country_outline(new_target_code, partial=True)
     
     # Calculate flag count based on progress
     flag_count = min(3 + session['score'] // 5, 8)  # Increase difficulty gradually up to 8 flags
@@ -542,6 +643,11 @@ def check_answer():
     if 'currency' in COUNTRIES[new_target]:
         target_currency = COUNTRIES[new_target]['currency']
     
+    # Get map coordinates for this country (for showing on the map)
+    target_coords = {}
+    if new_target_code.upper() in COUNTRY_COORDS:
+        target_coords = COUNTRY_COORDS[new_target_code.upper()]
+    
     # Return JSON for AJAX update
     response_data = {
         'target': new_target,
@@ -549,6 +655,10 @@ def check_answer():
         'target_arabic': COUNTRIES[new_target]['arabic'],
         'current_flags': new_flags,
         'flag_urls': flag_urls,
+        'outline_url': outline_url,
+        'partial_outline_url': partial_outline_url,
+        'target_coords': target_coords,
+        'country_coords': COUNTRY_COORDS,  # Add all country coordinates
         'score': session['score']
     }
     
@@ -576,6 +686,10 @@ def reset_game():
     target_country = get_random_country()
     target_code = COUNTRIES[target_country]['code']
     
+    # Generate both types of outlines for the target country
+    outline_url = generate_country_outline(target_code, partial=False)
+    partial_outline_url = generate_country_outline(target_code, partial=True)
+    
     # Ensure the target flag is among the choices
     if target_code not in session['current_flags']:
         session['current_flags'][random.randint(0, len(session['current_flags'])-1)] = target_code
@@ -590,6 +704,11 @@ def reset_game():
     if 'currency' in COUNTRIES[target_country]:
         target_currency = COUNTRIES[target_country]['currency']
     
+    # Get map coordinates for this country
+    target_coords = {}
+    if target_code.upper() in COUNTRY_COORDS:
+        target_coords = COUNTRY_COORDS[target_code.upper()]
+    
     # Return JSON for AJAX update
     response_data = {
         'target': target_country,
@@ -597,6 +716,10 @@ def reset_game():
         'target_arabic': COUNTRIES[target_country]['arabic'],
         'current_flags': session['current_flags'],
         'flag_urls': flag_urls,
+        'outline_url': outline_url,
+        'partial_outline_url': partial_outline_url,
+        'target_coords': target_coords,
+        'country_coords': COUNTRY_COORDS,  # Add all country coordinates
         'score': 0
     }
     
@@ -647,16 +770,26 @@ def world_map():
     print(f"World Map: Target country = {target_country}, code = {target_code}")
     print(f"Number of countries in COUNTRIES: {len(COUNTRIES)}")
     print(f"Number of coordinates in COUNTRY_COORDS: {len(COUNTRY_COORDS)}")
-    print(f"Sample countries: {list(COUNTRIES.keys())[:3]}")
-    print(f"Sample country codes: {[COUNTRIES[c]['code'] for c in list(COUNTRIES.keys())[:3]]}")
-    print(f"Sample country codes (uppercase): {[COUNTRIES[c]['code'].upper() for c in list(COUNTRIES.keys())[:3]]}")
-    print(f"Visited countries: {VISITED_COUNTRIES}")
     
-    # Return the map template
+    # Make copies of the data to ensure they're JSON serializable 
+    countries_copy = {}
+    for country_name, data in COUNTRIES.items():
+        countries_copy[country_name] = {
+            'code': data['code'],
+            'arabic': data.get('arabic', '')
+        }
+        # Add region if available
+        if 'region' in data:
+            countries_copy[country_name]['region'] = data['region']
+        # Add currency if available
+        if 'currency' in data:
+            countries_copy[country_name]['currency'] = data['currency']
+    
+    # Return the map template with normalized data
     return render_template('world_map.html',
                           country=target_country,
                           country_code=target_code,
-                          countries=COUNTRIES,
+                          countries=countries_copy,
                           country_coords=COUNTRY_COORDS,
                           visited=list(VISITED_COUNTRIES),
                           score=session['score'])
@@ -666,6 +799,9 @@ def visit_country():
     """Mark a country as visited on the map"""
     country_code = request.json.get('country_code')
     if country_code:
+        # Normalize country code to uppercase for consistency
+        country_code = country_code.upper()
+        
         # Add to visited countries
         VISITED_COUNTRIES.add(country_code)
         
@@ -673,21 +809,35 @@ def visit_country():
         newly_visited = False
         if country_code not in session.get('correct_flags', []):
             session['score'] = session.get('score', 0) + 1
-            session['correct_flags'] = session.get('correct_flags', []) + [country_code]
-            newly_visited = True
             
+            # Store the code in the session
+            current_flags = session.get('correct_flags', [])
+            if country_code not in current_flags:
+                current_flags.append(country_code)
+                session['correct_flags'] = current_flags
+            
+            newly_visited = True
+        
+        # Return success with updated information
         return jsonify({
             'success': True, 
             'visited': list(VISITED_COUNTRIES),
             'newly_visited': newly_visited,
             'score': session.get('score', 0)
         })
-    return jsonify({'success': False})
+    
+    return jsonify({'success': False, 'error': 'No country code provided'})
 
 @app.route('/reset_map', methods=['POST'])
 def reset_map():
     """Reset the world map exploration"""
-    VISITED_COUNTRIES.clear()
+    global VISITED_COUNTRIES
+    VISITED_COUNTRIES = set()
+    
+    # Reset session data related to the map
+    session['score'] = 0
+    session['correct_flags'] = []
+    
     return jsonify({'success': True})
 
 if __name__ == '__main__':

@@ -6,6 +6,151 @@
  
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <script>
+    // Add this to the <head> section of your world_map.html file to help diagnose issues
+
+    // Save original console methods
+    const originalConsole = {
+        log: console.log,
+        error: console.error,
+        warn: console.warn
+    };
+
+    // Override console methods to capture logs
+    const logs = [];
+    console.log = function() {
+        logs.push({type: 'log', message: Array.from(arguments).join(' '), time: new Date()});
+        originalConsole.log.apply(console, arguments);
+    };
+
+    console.error = function() {
+        logs.push({type: 'error', message: Array.from(arguments).join(' '), time: new Date()});
+        originalConsole.error.apply(console, arguments);
+    };
+
+    console.warn = function() {
+        logs.push({type: 'warn', message: Array.from(arguments).join(' '), time: new Date()});
+        originalConsole.warn.apply(console, arguments);
+    };
+
+    // Add window error handler
+    window.addEventListener('error', function(event) {
+        logs.push({
+            type: 'fatal', 
+            message: `ERROR: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`,
+            time: new Date()
+        });
+    });
+
+    // Add resource error handler
+    window.addEventListener('unhandledrejection', function(event) {
+        logs.push({
+            type: 'promise', 
+            message: `Unhandled Promise Rejection: ${event.reason}`,
+            time: new Date()
+        });
+    });
+
+    // Add function to download logs
+    function downloadLogs() {
+        const logText = logs.map(log => 
+            `[${log.time.toISOString()}] [${log.type.toUpperCase()}] ${log.message}`
+        ).join('\n');
+        
+        const blob = new Blob([logText], {type: 'text/plain'});
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `map-debug-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // Check if Leaflet loaded
+    function checkLeaflet() {
+        if (typeof L === 'undefined') {
+            console.error('Leaflet is not loaded!');
+            return false;
+        }
+        console.log('Leaflet is available:', L.version);
+        return true;
+    }
+
+    // Check coordinates structure
+    function checkCoordinates(coordsObj) {
+        if (!coordsObj) {
+            console.error('Coordinates object is null or undefined');
+            return false;
+        }
+        
+        const countryCount = Object.keys(coordsObj).length;
+        console.log(`Coordinates object has ${countryCount} countries`);
+        
+        // Sample a few entries
+        const sampleKeys = Object.keys(coordsObj).slice(0, 3);
+        for (const key of sampleKeys) {
+            console.log(`Sample coordinate ${key}:`, coordsObj[key]);
+        }
+        
+        return countryCount > 0;
+    }
+
+    // Check all map dependencies
+    function runMapDiagnostics() {
+        console.log('Running map diagnostics...');
+        
+        // Check Leaflet
+        const leafletLoaded = checkLeaflet();
+        if (!leafletLoaded) {
+            console.error('FATAL: Leaflet library is missing');
+        }
+        
+        // Check if coordinates are available
+        if (typeof COUNTRY_COORDS !== 'undefined') {
+            checkCoordinates(COUNTRY_COORDS);
+        } else {
+            console.error('COUNTRY_COORDS is not defined');
+        }
+        
+        // Check if country data is available
+        if (typeof COUNTRIES_DATA !== 'undefined') {
+            console.log(`COUNTRIES_DATA has ${Object.keys(COUNTRIES_DATA).length} countries`);
+        } else {
+            console.error('COUNTRIES_DATA is not defined');
+        }
+        
+        // Check if visited countries is available
+        if (typeof visitedCountries !== 'undefined') {
+            console.log(`visitedCountries has ${visitedCountries.size} countries`);
+        } else {
+            console.error('visitedCountries is not defined');
+        }
+        
+        // Create diagnostic button
+        const diagButton = document.createElement('button');
+        diagButton.textContent = 'Download Debug Logs';
+        diagButton.className = 'action-button';
+        diagButton.style.backgroundColor = '#9c27b0';
+        diagButton.onclick = downloadLogs;
+        
+        // Add to page
+        const container = document.querySelector('.stats-panel');
+        if (container) {
+            container.appendChild(diagButton);
+        }
+        
+        console.log('Diagnostics complete');
+    }
+
+    // Run diagnostics after a short delay
+    window.addEventListener('load', function() {
+        setTimeout(runMapDiagnostics, 2000);
+    });
+    </script>
  
     <style>
         body {
@@ -238,113 +383,69 @@
             }
         }
  
-        // COUNTRIES data with coordinates
-        const COUNTRY_COORDS = {
-            'US': {
-                lat: 37.0902,
-                lng: -95.7129,
-                zoom: 4
-            },
-            'FR': {
-                lat: 46.2276,
-                lng: 2.2137,
-                zoom: 6
-            },
-            'JP': {
-                lat: 36.2048,
-                lng: 138.2529,
-                zoom: 5
-            },
-            'BR': {
-                lat: -14.2350,
-                lng: -51.9253,
-                zoom: 4
-            },
-            'ZA': {
-                lat: -30.5595,
-                lng: 22.9375,
-                zoom: 5
-            },
-            'AU': {
-                lat: -25.2744,
-                lng: 133.7751,
-                zoom: 4
-            },
-            'EG': {
-                lat: 26.8206,
-                lng: 30.8025,
-                zoom: 6
-            },
-            'IN': {
-                lat: 20.5937,
-                lng: 78.9629,
-                zoom: 4
-            },
-            'CA': {
-                lat: 56.1304,
-                lng: -106.3468,
-                zoom: 3
-            },
-            'DE': {
-                lat: 51.1657,
-                lng: 10.4515,
-                zoom: 6
-            },
-            'GB': {
-                lat: 55.3781,
-                lng: -3.4360,
-                zoom: 5
-            },
-            'CN': {
-                lat: 35.8617,
-                lng: 104.1954,
-                zoom: 4
-            },
-            'RU': {
-                lat: 61.5240,
-                lng: 105.3188,
-                zoom: 3
-            },
-            'MX': {
-                lat: 23.6345,
-                lng: -102.5528,
-                zoom: 5
-            }
-        };
+        // COUNTRIES data with coordinates - using the country_coords data from the Python app
+        const COUNTRY_COORDS = {{ country_coords|tojson }};
  
         try {
-            COUNTRIES_DATA = JSON.parse('{{ countries|tojson }}');
-            logDebug(`Successfully parsed COUNTRIES_DATA: ${Object.keys(COUNTRIES_DATA).length} countries`);
+            // The countries data is an object, not a string to parse
+            COUNTRIES_DATA = {{ countries|tojson }};
+            logDebug(`Successfully loaded COUNTRIES_DATA: ${Object.keys(COUNTRIES_DATA).length} countries`);
+            
+            // Log a sample of the data for debugging
+            const sampleKeys = Object.keys(COUNTRIES_DATA).slice(0, 3);
+            for (const key of sampleKeys) {
+                logDebug(`Sample country: ${key}, Code: ${COUNTRIES_DATA[key].code}`);
+            }
+            
+            // Create a normalized version with uppercase codes for comparison
+            const normalizedCountries = {};
+            for (const [name, data] of Object.entries(COUNTRIES_DATA)) {
+                const upperCode = data.code.toUpperCase();
+                normalizedCountries[name] = {
+                    ...data,
+                    upperCode: upperCode  // Add uppercase version for easier comparison
+                };
+            }
+            COUNTRIES_DATA = normalizedCountries;
+            
         } catch (e) {
-            logDebug(`Failed to parse countries data: ${e.message}. Using fallback data.`, true);
+            logDebug(`Failed to load countries data: ${e.message}. Using fallback data.`, true);
             // Fallback to hardcoded sample data that works
             COUNTRIES_DATA = {
-                "United States": {"code": "US"}, 
-                "France": {"code": "FR"}, 
-                "Japan": {"code": "JP"}, 
-                "Brazil": {"code": "BR"}, 
-                "South Africa": {"code": "ZA"}, 
-                "Australia": {"code": "AU"}, 
-                "Egypt": {"code": "EG"}, 
-                "India": {"code": "IN"}, 
-                "Canada": {"code": "CA"}, 
-                "Germany": {"code": "DE"}, 
-                "United Kingdom": {"code": "GB"}, 
-                "China": {"code": "CN"}, 
-                "Russia": {"code": "RU"}, 
-                "Mexico": {"code": "MX"}
+                "United States": {"code": "us", "upperCode": "US"}, 
+                "France": {"code": "fr", "upperCode": "FR"}, 
+                "Japan": {"code": "jp", "upperCode": "JP"}, 
+                "Brazil": {"code": "br", "upperCode": "BR"}, 
+                "South Africa": {"code": "za", "upperCode": "ZA"}, 
+                "Australia": {"code": "au", "upperCode": "AU"}, 
+                "Egypt": {"code": "eg", "upperCode": "EG"}, 
+                "India": {"code": "in", "upperCode": "IN"}, 
+                "Canada": {"code": "ca", "upperCode": "CA"}, 
+                "Germany": {"code": "de", "upperCode": "DE"}, 
+                "United Kingdom": {"code": "gb", "upperCode": "GB"}, 
+                "China": {"code": "cn", "upperCode": "CN"}, 
+                "Russia": {"code": "ru", "upperCode": "RU"}, 
+                "Mexico": {"code": "mx", "upperCode": "MX"}
             };
             logDebug(`Using fallback data with ${Object.keys(COUNTRIES_DATA).length} countries`);
         }
  
         try {
-            visitedCountries = new Set(JSON.parse('{{ visited|safe }}'));
-            logDebug(`Successfully parsed visited countries: ${visitedCountries.size} visited`);
+            // Parse visited countries - normalize them to uppercase
+            const visitedRaw = {{ visited|tojson }};
+            visitedCountries = new Set(visitedRaw.map(code => code.toUpperCase()));
+            logDebug(`Successfully loaded visited countries: ${visitedCountries.size} visited`);
+            if (visitedCountries.size > 0) {
+                const sampleVisited = Array.from(visitedCountries).slice(0, 3);
+                logDebug(`Sample visited countries: ${sampleVisited.join(', ')}`);
+            }
         } catch (e) {
-            logDebug(`Failed to parse visited countries: ${e.message}`, true);
+            logDebug(`Failed to load visited countries: ${e.message}`, true);
+            visitedCountries = new Set(); // Initialize as empty set
         }
  
-        targetCountry = '{{ country_code }}';
+        // Normalize target country to uppercase for consistency
+        targetCountry = '{{ country_code }}'.toUpperCase();
         logDebug(`Target country: ${targetCountry}`);
  
         // Update the progress bar
@@ -381,6 +482,8 @@
  
         // Visit a country
         function visitCountry(countryCode) {
+            countryCode = countryCode.toUpperCase(); // Normalize to uppercase
+            
             if (!visitedCountries.has(countryCode)) {
                 // Add to visited set locally
                 visitedCountries.add(countryCode);
@@ -388,7 +491,7 @@
                 // Find the country name
                 let countryName = countryCode;
                 Object.entries(COUNTRIES_DATA).forEach(([name, data]) => {
-                    if (data.code.toUpperCase() === countryCode) {
+                    if (data.upperCode === countryCode) {
                         countryName = name;
                     }
                 });
@@ -438,6 +541,9 @@
  
                     // Update progress
                     updateProgress();
+                    
+                    // Reload the page to reset all markers
+                    window.location.reload();
                 })
                 .catch((error) => {
                     logDebug(`Error resetting countries: ${error}`, true);
@@ -462,10 +568,9 @@
                 // Initialize the map centered on the world
                 map = L.map('world-map').setView([20, 0], 2);
  
-                // Add custom CartoDB Voyager tile layer with no labels
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-                    subdomains: 'abcd',
+                // Use OpenStreetMap as the base layer (more reliable)
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                     maxZoom: 19
                 }).addTo(map);
  
@@ -475,71 +580,77 @@
                 
                 // Debug: log first few country entries to see format
                 let debugCount = 0;
-                for (const [key, value] of Object.entries(COUNTRIES_DATA)) {
-                    if (debugCount < 3) {
-                        logDebug(`Sample country data - Name: ${key}, Code: ${value.code}, Uppercase: ${value.code.toUpperCase()}`);
-                        debugCount++;
-                    }
-                }
+                let markersCreated = 0;
                 
                 Object.entries(COUNTRIES_DATA).forEach(([countryName, data]) => {
-                    const countryCode = data.code.toUpperCase();
+                    if (debugCount < 3) {
+                        logDebug(`Sample country data - Name: ${countryName}, Code: ${data.code}, Uppercase: ${data.upperCode}`);
+                        debugCount++;
+                    }
+                    
+                    const countryCode = data.upperCode; // Use uppercase code for consistency
                     const coords = COUNTRY_COORDS[countryCode];
                     
                     if (!coords) {
-                        logDebug(`No coordinates found for country: ${countryName} (code: ${countryCode})`);
-                    }
- 
-                    if (coords) {
-                        // Different styles based on country status
-                        let markerColor = '#3388ff'; // Default blue
- 
-                        if (visitedCountries.has(countryCode)) {
-                            markerColor = '#76c893'; // Green for visited
-                        } else if (countryCode === targetCountry) {
-                            markerColor = '#ffb703'; // Yellow for target
+                        if (debugCount < 10) {
+                            logDebug(`No coordinates found for country: ${countryName} (code: ${countryCode})`);
+                            debugCount++;
                         }
- 
-                        // Create marker (larger size but no labels)
-                        const marker = L.circleMarker([coords.lat, coords.lng], {
-                            radius: 10,
-                            fillColor: markerColor,
-                            color: '#fff',
-                            weight: 2,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        }).addTo(map);
- 
-                        // The popup only shows when clicking the marker
-                        marker.bindPopup(`
-                            <div style="text-align:center">
-                                <h3>${countryName}</h3>
-                                <p>${visitedCountries.has(countryCode) ? 'Discovered' : 'Undiscovered'}</p>
-                                ${!visitedCountries.has(countryCode) ? '<button id="visit-btn" style="padding:5px 10px; background:#4CAF50; color:white; border:none; border-radius:3px; cursor:pointer;">Discover</button>' : ''}
-                            </div>
-                        `);
- 
-                        // Add click event
-                        marker.on('click', function() {
-                            if (countryCode === targetCountry) {
-                                logDebug(`Clicked on target country: ${countryName}`);
-                            }
-                        });
- 
-                        // Add popup event for the "Discover" button
-                        marker.on('popupopen', function() {
-                            const visitBtn = document.getElementById('visit-btn');
-                            if (visitBtn) {
-                                visitBtn.addEventListener('click', function() {
-                                    visitCountry(countryCode);
-                                    marker.setStyle({
-                                        fillColor: '#76c893'
-                                    });
-                                    marker.closePopup();
-                                });
-                            }
-                        });
+                        return;
                     }
+                    
+                    markersCreated++;
+ 
+                    // Different styles based on country status
+                    let markerColor = '#3388ff'; // Default blue
+                    let radius = 8; // Default size
+ 
+                    if (visitedCountries.has(countryCode)) {
+                        markerColor = '#76c893'; // Green for visited
+                    } else if (countryCode === targetCountry) {
+                        markerColor = '#ffb703'; // Yellow for target
+                        radius = 12; // Larger for target
+                    }
+ 
+                    // Create marker (larger size but no labels)
+                    const marker = L.circleMarker([coords.lat, coords.lng], {
+                        radius: radius,
+                        fillColor: markerColor,
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+ 
+                    // The popup only shows when clicking the marker
+                    marker.bindPopup(`
+                        <div style="text-align:center">
+                            <h3>${countryName}</h3>
+                            <p>${visitedCountries.has(countryCode) ? 'Discovered' : 'Undiscovered'}</p>
+                            ${!visitedCountries.has(countryCode) ? '<button id="visit-btn" style="padding:5px 10px; background:#4CAF50; color:white; border:none; border-radius:3px; cursor:pointer;">Discover</button>' : ''}
+                        </div>
+                    `);
+ 
+                    // Add click event
+                    marker.on('click', function() {
+                        if (countryCode === targetCountry) {
+                            logDebug(`Clicked on target country: ${countryName}`);
+                        }
+                    });
+ 
+                    // Add popup event for the "Discover" button
+                    marker.on('popupopen', function() {
+                        const visitBtn = document.getElementById('visit-btn');
+                        if (visitBtn) {
+                            visitBtn.addEventListener('click', function() {
+                                visitCountry(countryCode);
+                                marker.setStyle({
+                                    fillColor: '#76c893'
+                                });
+                                marker.closePopup();
+                            });
+                        }
+                    });
                 });
  
                 // Add info panel to the map
@@ -552,9 +663,17 @@
                 };
  
                 info.update = function() {
+                    // Find country name from code
+                    let targetCountryName = targetCountry;
+                    Object.entries(COUNTRIES_DATA).forEach(([name, data]) => {
+                        if (data.upperCode === targetCountry) {
+                            targetCountryName = name;
+                        }
+                    });
+                    
                     this._div.innerHTML = `
                         <h4>World Explorer</h4>
-                        <p>Target Country: <strong>{{ country }}</strong></p>
+                        <p>Target Country: <strong>${targetCountryName}</strong></p>
                         <p>Countries Discovered: <strong>${visitedCountries.size}</strong></p>
                     `;
                 };
@@ -579,7 +698,15 @@
  
                 legend.addTo(map);
  
-                logDebug('Map initialized successfully');
+                logDebug(`Map initialized successfully with ${markersCreated} country markers`);
+                
+                // Check if target country was found
+                if (COUNTRY_COORDS[targetCountry]) {
+                    logDebug(`Target country ${targetCountry} has coordinates: ${COUNTRY_COORDS[targetCountry].lat}, ${COUNTRY_COORDS[targetCountry].lng}`);
+                } else {
+                    logDebug(`WARNING: Target country ${targetCountry} has no coordinates`, true);
+                }
+                
                 updateProgress();
  
             } catch (error) {
@@ -601,10 +728,36 @@
             document.getElementById('highlight-target').addEventListener('click', function() {
                 const coords = COUNTRY_COORDS[targetCountry];
                 if (coords && map) {
-                    map.setView([coords.lat, coords.lng], coords.zoom);
-                    logDebug(`Highlighting target: ${targetCountry}`);
+                    // Find the country name for display
+                    let targetCountryName = targetCountry;
+                    Object.entries(COUNTRIES_DATA).forEach(([name, data]) => {
+                        if (data.upperCode === targetCountry) {
+                            targetCountryName = name;
+                        }
+                    });
+                    
+                    // Use the zoom level from coords or default to 5
+                    const zoomLevel = coords.zoom || 5;
+                    map.setView([coords.lat, coords.lng], zoomLevel);
+                    logDebug(`Highlighting target country: ${targetCountryName} (${targetCountry}) at zoom level ${zoomLevel}`);
+                    
+                    // Add a temporary highlight effect
+                    const highlightMarker = L.circleMarker([coords.lat, coords.lng], {
+                        radius: 20,
+                        fillColor: '#ff0000',
+                        color: '#fff',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.4
+                    }).addTo(map);
+                    
+                    // Remove highlight after 3 seconds
+                    setTimeout(() => {
+                        map.removeLayer(highlightMarker);
+                    }, 3000);
+                    
                 } else {
-                    logDebug('Error: Map not initialized or target country not found', true);
+                    logDebug(`Error: Target country ${targetCountry} coordinates not found or map not initialized`, true);
                 }
             });
  
