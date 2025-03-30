@@ -1,0 +1,1462 @@
+<!-- templates/game.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlagTrivia Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        header {
+            background-color: #3498db;
+            color: white;
+            width: 100%;
+            padding: 15px 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .language-toggle {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(255,255,255,0.2);
+            padding: 5px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .language-toggle:hover {
+            background-color: rgba(255,255,255,0.3);
+        }
+        .game-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 95%;
+            max-width: 800px;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            header {
+                padding: 10px 5px;
+            }
+            .game-container {
+                padding: 10px;
+                width: 98%;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+            h2 {
+                font-size: 1.2em;
+            }
+            .flag-container {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 15px;
+            }
+            .flag {
+                width: 120px;
+                height: 80px;
+            }
+            .threshold-label {
+                font-size: 0.7em;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .flag-container {
+                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+                gap: 10px;
+            }
+            .flag {
+                width: 90px;
+                height: 60px;
+            }
+            .score-container {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            .download-button {
+                font-size: 0.9em;
+            }
+            .threshold-label {
+                top: -20px;
+                font-size: 0.7em;
+                padding: 1px 3px;
+            }
+        }
+        .flag-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+            width: 100%;
+            justify-items: center;
+        }
+        .flag-wrapper {
+            position: relative;
+            transition: 0.3s;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        .flag {
+            border: 3px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 150px;
+            height: 100px;
+            object-fit: cover;
+        }
+        .correct {
+            border-color: #2ecc71 !important;
+            box-shadow: 0 0 15px #2ecc71;
+        }
+        .wrong {
+            border-color: #e74c3c;
+            opacity: 0.7;
+        }
+        .hint {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { border-color: transparent; }
+            50% { border-color: rgba(46, 204, 113, 0.5); }
+            100% { border-color: transparent; }
+        }
+        .flag-wrapper:hover .flag {
+            transform: scale(1.05);
+        }
+        .score-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .reset-button {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .reset-button:hover {
+            background-color: #c0392b;
+        }
+        .progress-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            margin: 30px 0;
+            height: 20px;
+            position: relative;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 10px;
+            background-color: #2ecc71;
+            transition: width 0.5s ease;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+        }
+        .country-info {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            display: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            animation: fadeIn 0.5s;
+        }
+        .country-info.visible {
+            display: block;
+        }
+        .country-info-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 15px;
+        }
+        .country-info-header img {
+            height: 40px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .country-info-header h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        .country-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .country-detail {
+            display: flex;
+            flex-direction: column;
+        }
+        .detail-label {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            margin-bottom: 3px;
+        }
+        .detail-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 480px) {
+            .country-details {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Map Quiz Styles */
+        .map-quiz-container {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            animation: fadeIn 0.5s;
+        }
+        .quiz-question {
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+            color: #2c3e50;
+        }
+        .quiz-subtitle {
+            text-align: center;
+            margin: 10px 0;
+            font-style: italic;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .map-container {
+            width: 100%;
+            height: 250px;
+            margin: 15px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background-color: #222;
+            position: relative;
+        }
+        .map-options {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 10px 0;
+        }
+        .map-button {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .map-button:hover {
+            background-color: #e9ecef;
+        }
+        .correct-btn {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .correct-btn:hover {
+            background-color: #c3e6cb;
+        }
+        .map-result {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        .map-result.visible {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        .map-result.correct {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        /* Hint Styles */
+        .hint-container {
+            text-align: center;
+            margin: 10px 0;
+        }
+        .hint-btn {
+            background-color: #17a2b8;
+            color: white;
+            border-color: #17a2b8;
+        }
+        .hint-btn:hover {
+            background-color: #138496;
+        }
+        .hint-text {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+            font-style: italic;
+            display: none;
+        }
+        .hint-text.visible {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        /* Continue Button */
+        .continue-container {
+            text-align: center;
+            margin: 15px 0;
+        }
+        .continue-btn {
+            background-color: #28a745;
+            color: white;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-color: #28a745;
+        }
+        .continue-btn:hover {
+            background-color: #218838;
+        }
+        
+        /* Country outline map styles */
+        .country-outline {
+            width: 100%;
+            height: 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: contain;
+            position: relative;
+        }
+        .threshold-markers {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .threshold-marker {
+            position: absolute;
+            height: 20px; /* Same as progress bar */
+            width: 2px;
+            background-color: rgba(231, 76, 60, 0.8); /* Semi-transparent red */
+            border-radius: 2px;
+            top: 0;
+            z-index: 10;
+        }
+        .threshold-label {
+            position: absolute;
+            top: -22px;
+            transform: translateX(-50%);
+            font-size: 0.8em;
+            color: #7f8c8d;
+            white-space: nowrap;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .status-message {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+            height: 24px;
+        }
+        .correct-message {
+            color: #2ecc71;
+        }
+        .wrong-message {
+            color: #e74c3c;
+        }
+        .country-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .arabic-name {
+            font-family: 'Amiri', serif;
+            font-size: 1.5em;
+            text-align: center;
+            direction: rtl;
+            margin: 10px 0;
+        }
+        /* Arabic interface adjustments */
+        .arabic-interface .game-container {
+            direction: rtl;
+        }
+        .arabic-interface .arabic-name {
+            font-size: 1.8em;
+        }
+        .arabic-interface .country-name {
+            font-size: 1.2em;
+        }
+        .arabic-interface .reset-button {
+            font-family: 'Amiri', serif;
+        }
+        /* Button for downloading all flags */
+        .download-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px 0;
+            transition: background-color 0.3s;
+        }
+        .download-button:hover {
+            background-color: #2980b9;
+        }
+        .download-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 15px 0;
+        }
+        .download-status {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+        /* Loading indicator */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <!-- No need for Maps API -->
+</head>
+<body id="body" class="{{ 'arabic-interface' if language == 'arabic' else '' }}">
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <header>
+        <h1>World Flag Trivia</h1>
+        <div class="language-toggle" onclick="switchLanguage()">
+            {{ 'English' if language == 'arabic' else 'العربية' }}
+        </div>
+        <div style="position: absolute; top: 15px; left: 15px;">
+            <a href="/world_map" style="background-color: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; cursor: pointer; transition: all 0.3s; color: white; text-decoration: none;">
+                World Map
+            </a>
+        </div>
+    </header>
+    
+    <div class="game-container">
+        <div class="score-container">
+            <h2>Score: <span id="score">{{ session['score'] }}</span></h2>
+            <button class="reset-button" onclick="resetGame()">{{ 'إعادة اللعبة' if language == 'arabic' else 'Reset Game' }}</button>
+        </div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar" style="width: 0%">0%</div>
+            <div class="threshold-markers" id="thresholdMarkers">
+                <!-- Threshold markers will be added by JavaScript -->
+            </div>
+        </div>
+        <div class="status-message" id="statusMessage"></div>
+        
+        <!-- Map Quiz Game Mode -->
+        <div class="map-quiz-container">
+            <h2>{{ 'ما هو علم هذه الدولة؟' if language == 'arabic' else 'What is the flag of this country?' }}</h2>
+            
+            <!-- Country Map Display -->
+            <div id="map-container" class="map-container">
+                <!-- Direct map implementation - no reliance on JavaScript -->
+                <div class="country-outline">
+                    <img src="{{ url_for('static', filename='flags/' + countries[target]['code'] + '.png') }}"
+                         alt="Country silhouette"
+                         style="width: 100%; height: 100%; object-fit: contain; filter: brightness(0.1) contrast(3) grayscale(1) invert(1) drop-shadow(0 0 5px #000); opacity: 0.9; mix-blend-mode: exclusion;">
+                </div>
+            </div>
+            
+            <!-- Help Text -->
+            <div class="quiz-subtitle">
+                {{ 'انظر إلى شكل الدولة واختر العلم المناسب' if language == 'arabic' else 'Look at the country shape and select the correct flag' }}
+            </div>
+            
+            <!-- Hint button (appears after wrong attempts) -->
+            <div class="hint-container">
+                <button id="showHintBtn" class="map-button hint-btn" style="display: none;">
+                    {{ 'إظهار تلميح' if language == 'arabic' else 'Show Hint' }}
+                </button>
+                <div id="hintText" class="hint-text"></div>
+            </div>
+            
+            <!-- Result message -->
+            <div id="mapResult" class="map-result"></div>
+            
+            <!-- Flag Selection -->
+            <div class="flag-container" id="flagContainer">
+                {% for code in current_flags %}
+                <div class="flag-wrapper">
+                    <img class="flag {% if code in correct_flags and session['score'] >= 10 %}correct{% endif %}" 
+                         src="{{ url_for('static', filename='flags/' + code + '.png') }}" 
+                         data-code="{{ code }}"
+                         data-country="{% for country, data in countries.items() %}{% if data['code'] == code %}{{ country }}{% endif %}{% endfor %}"
+                         alt="Flag"
+                         loading="lazy">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Country info panel (hidden initially, shown after answer) -->
+        <div class="country-info" id="countryInfo" style="display: none;">
+            <div class="country-info-header">
+                <img id="infoFlag" src="" alt="Country Flag">
+                <h3 id="infoName"></h3>
+            </div>
+            <div class="country-name" id="targetCountry">{{ target }}</div>
+            <div class="arabic-name" id="targetArabic">{{ target_arabic }}</div>
+            <div class="country-details">
+                <div class="country-detail">
+                    <div class="detail-label">{{ 'العاصمة' if language == 'arabic' else 'Capital' }}</div>
+                    <div class="detail-value" id="infoCapital"></div>
+                </div>
+                <div class="country-detail">
+                    <div class="detail-label">{{ 'العملة' if language == 'arabic' else 'Currency' }}</div>
+                    <div class="detail-value" id="infoCurrency"></div>
+                </div>
+                <div class="country-detail">
+                    <div class="detail-label">{{ 'المنطقة' if language == 'arabic' else 'Region' }}</div>
+                    <div class="detail-value" id="infoRegion"></div>
+                </div>
+                <div class="country-detail">
+                    <div class="detail-label">{{ 'اللغة' if language == 'arabic' else 'Language' }}</div>
+                    <div class="detail-value" id="infoLanguage"></div>
+                </div>
+            </div>
+            
+            <!-- Continue button -->
+            <div class="continue-container">
+                <button id="continueBtn" class="map-button continue-btn">
+                    {{ 'استمر' if language == 'arabic' else 'Continue' }}
+                </button>
+            </div>
+        </div>
+        
+        <div class="download-section">
+            <button class="download-button" onclick="downloadAllFlags()">
+                {{ 'تنزيل جميع الأعلام' if language == 'arabic' else 'Download All Flags' }}
+            </button>
+            <div class="download-status">
+                {{ 'تم تنزيل' if language == 'arabic' else 'Downloaded' }}: 
+                <span id="flags-count">{{ flags_count }}</span>/{{ total_countries }}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let score = {{ session['score'] }};
+        let correctFlags = {{ correct_flags|tojson }};
+        let targetCountry = "{{ target }}";
+        let targetArabic = "{{ target_arabic }}";
+        let targetCode = "{{ countries[target]['code'] }}";
+        let answered = false;
+        let attempts = 0;
+        const totalCountries = {{ total_countries }};
+        let progressValue = Math.round((score / totalCountries) * 100);
+        let language = "{{ language }}";
+        let gameMode = "{{ game_mode }}";
+        
+        // Setup threshold markers
+        function setupThresholdMarkers() {
+            const thresholdContainer = document.getElementById('thresholdMarkers');
+            thresholdContainer.innerHTML = '';
+            
+            // Define key thresholds
+            const thresholds = [
+                { percent: 50, label: '50%', description: 'Hints Activate' },
+                { percent: 100, label: '100%', description: 'Full Outlines Activate' }
+            ];
+            
+            thresholds.forEach(threshold => {
+                const marker = document.createElement('div');
+                marker.className = 'threshold-marker';
+                marker.style.left = `${threshold.percent}%`;
+                marker.title = threshold.description;
+                
+                const label = document.createElement('div');
+                label.className = 'threshold-label';
+                label.textContent = threshold.label;
+                label.style.left = `${threshold.percent}%`;
+                
+                thresholdContainer.appendChild(marker);
+                thresholdContainer.appendChild(label);
+            });
+        }
+        
+        // Reset game function
+        function resetGame() {
+            showLoading();
+            fetch('/reset_game', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+            }).then(response => response.json())
+              .then(data => {
+                  // Reset game state
+                  score = 0;
+                  correctFlags = [];
+                  progressValue = 0;
+                  
+                  // Update UI
+                  document.getElementById('score').textContent = '0';
+                  document.getElementById('progressBar').style.width = '0%';
+                  document.getElementById('progressBar').textContent = `0% (0/${totalCountries})`;
+                  document.getElementById('statusMessage').textContent = '';
+                  document.getElementById('statusMessage').className = 'status-message';
+                  
+                  // Update game with new data
+                  updateGame(data);
+                  hideLoading();
+              });
+        }
+        
+        // Check flags status
+        function checkFlagsStatus() {
+            fetch('/flags_status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('flags-count').textContent = data.count;
+                });
+        }
+        
+        // Download all flags
+        function downloadAllFlags() {
+            showLoading();
+            document.getElementById('statusMessage').textContent = language === 'arabic' ? 'جارٍ تنزيل الأعلام... قد يستغرق هذا بضع دقائق' : 'Downloading flags... This may take a few minutes';
+            document.getElementById('statusMessage').className = 'status-message';
+            
+            fetch('/download_flags')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('statusMessage').textContent = language === 'arabic' ? 'تم تنزيل جميع الأعلام!' : 'All flags downloaded!';
+                    document.getElementById('statusMessage').className = 'status-message correct-message';
+                    document.getElementById('flags-count').textContent = data.count;
+                    hideLoading();
+                    
+                    // Reload the current flags to use local versions
+                    document.querySelectorAll('.flag').forEach(flag => {
+                        const code = flag.getAttribute('data-code');
+                        flag.src = `/static/flags/${code}.png`;
+                    });
+                })
+                .catch(error => {
+                    document.getElementById('statusMessage').textContent = language === 'arabic' ? 'حدث خطأ أثناء تنزيل الأعلام' : 'Error downloading flags';
+                    document.getElementById('statusMessage').className = 'status-message wrong-message';
+                    hideLoading();
+                });
+        }
+        
+        // Show loading spinner
+        function showLoading() {
+            document.getElementById('loading').style.display = 'flex';
+        }
+        
+        // Hide loading spinner
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        // Initial setup
+        setupThresholdMarkers();
+        
+        // Update progress bar initially
+        document.getElementById('progressBar').style.width = progressValue + '%';
+        document.getElementById('progressBar').textContent = `${progressValue}% (${score}/${totalCountries})`;
+        
+        // Check for flag status periodically
+        checkFlagsStatus();
+        setInterval(checkFlagsStatus, 30000); // Check every 30 seconds
+        
+        // Initialize the map-based game (on document load)
+        document.addEventListener('DOMContentLoaded', function() {
+            initMapGame();
+        });
+
+        // Initialize map-based game
+        function initMapGame() {
+            // Generate the map outline for the target country
+            const countriesData = {{ countries|tojson }};
+            const targetCountryData = countriesData[targetCountry];
+            
+            console.log("Initializing map game for", targetCountry, "with code", targetCode);
+            
+            if (targetCountryData) {
+                console.log("Generating map for", targetCountry, "with code", targetCountryData.code);
+                generateCountryMap(targetCountryData.code, targetCountry);
+            } else {
+                console.error("Country data not found for", targetCountry);
+            }
+            
+            // Initialize hint button
+            document.getElementById('showHintBtn').addEventListener('click', function() {
+                // Show region hint
+                const hintText = document.getElementById('hintText');
+                if (targetCountryData && targetCountryData.region) {
+                    const regionName = language === 'arabic' ? 
+                        targetCountryData.region.ar : targetCountryData.region.en;
+                    
+                    hintText.textContent = language === 'arabic' ? 
+                        `تلميح: هذا البلد يقع في ${regionName}` : 
+                        `Hint: This country is located in ${regionName}`;
+                } else {
+                    hintText.textContent = language === 'arabic' ? 
+                        'تلميح غير متوفر' : 'Hint not available';
+                }
+                
+                hintText.className = 'hint-text visible';
+                this.disabled = true;
+            });
+            
+            // Initialize continue button
+            document.getElementById('continueBtn').addEventListener('click', function() {
+                // Hide country info and get next question
+                document.getElementById('countryInfo').style.display = 'none';
+                
+                // Reset state and continue to next question
+                nextQuestion();
+            });
+        }
+        
+        // Initialize flag click handlers
+        document.querySelectorAll('.flag').forEach(flag => {
+            flag.addEventListener('click', function() {
+                if (answered) return;
+                
+                const code = this.getAttribute('data-code');
+                checkAnswer(code);
+            });
+        });
+
+        // Switch language
+        function switchLanguage() {
+            const newLanguage = language === 'english' ? 'arabic' : 'english';
+            
+            fetch('/switch_language', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `language=${newLanguage}`
+            }).then(response => response.json())
+              .then(data => {
+                  language = newLanguage;
+                  document.getElementById('body').className = newLanguage === 'arabic' ? 'arabic-interface' : '';
+                  
+                  // Toggle displayed text
+                  document.querySelector('.language-toggle').textContent = 
+                      newLanguage === 'arabic' ? 'English' : 'العربية';
+                  
+                  // Reset button text
+                  document.querySelector('.reset-button').textContent = 
+                      newLanguage === 'arabic' ? 'إعادة اللعبة' : 'Reset Game';
+                  
+                  // Download button text
+                  document.querySelector('.download-button').textContent = 
+                      newLanguage === 'arabic' ? 'تنزيل جميع الأعلام' : 'Download All Flags';
+                  
+                  // Prioritize display based on language
+                  if (newLanguage === 'arabic') {
+                      document.getElementById('targetArabic').style.fontSize = '1.8em';
+                      document.getElementById('targetCountry').style.fontSize = '1.2em';
+                  } else {
+                      document.getElementById('targetArabic').style.fontSize = '1.5em';
+                      document.getElementById('targetCountry').style.fontSize = '1.5em';
+                  }
+              });
+        }
+
+        // Show hints for some flags based on progress threshold
+        function showHints(showAll = false) {
+            // If progress is 100%, show outlines for all previously answered flags
+            // Otherwise, show hints only for half of the answered flags
+            const flags = document.querySelectorAll('.flag');
+            let hintFlags = [];
+            
+            flags.forEach(flag => {
+                const code = flag.getAttribute('data-code');
+                if (correctFlags.includes(code) && code !== targetCode) {
+                    hintFlags.push(flag);
+                }
+            });
+            
+            if (progressValue >= 100 || showAll) {
+                // At 100% progress, show all hints
+                hintFlags.forEach(flag => {
+                    flag.classList.add('correct');
+                });
+            } else if (hintFlags.length > 0) {
+                // Show hints for half of the flags
+                const halfCount = Math.ceil(hintFlags.length / 2);
+                const shuffled = hintFlags.sort(() => 0.5 - Math.random());
+                
+                for (let i = 0; i < halfCount; i++) {
+                    if (shuffled[i]) {
+                        shuffled[i].classList.add('hint');
+                    }
+                }
+            }
+        }
+        
+        // Fetch country information with preference for local data
+        function fetchCountryInfo(countryName) {
+            console.log("Fetching info for country:", countryName);
+            const countryInfo = document.getElementById('countryInfo');
+            countryInfo.classList.remove('visible');
+            
+            // Hide map quiz section initially
+            document.getElementById('mapQuiz').classList.remove('visible');
+            
+            // Reset map quiz
+            resetMapQuiz();
+            
+            // Show loading state
+            document.getElementById('infoName').textContent = language === 'arabic' ? 'جاري التحميل...' : 'Loading...';
+            document.getElementById('infoCapital').textContent = '...';
+            document.getElementById('infoCurrency').textContent = '...';
+            document.getElementById('infoRegion').textContent = '...';
+            document.getElementById('infoLanguage').textContent = '...';
+            
+            countryInfo.classList.add('visible');
+            
+            // Get country data from our local data if available
+            const countriesData = {{ countries|tojson }};
+            const countryData = countriesData[countryName];
+            
+            if (countryData) {
+                // Use local data first
+                const countryCode = countryData.code;
+                
+                // Set flag and name
+                document.getElementById('infoFlag').src = `/static/flags/${countryCode}.png`;
+                document.getElementById('infoName').textContent = language === 'arabic' ? 
+                    countryData.arabic : countryName;
+                
+                // Set currency if available
+                if (countryData.currency) {
+                    const currencyCode = countryData.currency.code;
+                    const currencyName = language === 'arabic' ? 
+                        countryData.currency.name.ar : countryData.currency.name.en;
+                    document.getElementById('infoCurrency').textContent = `${currencyName} (${currencyCode})`;
+                } else {
+                    document.getElementById('infoCurrency').textContent = 'N/A';
+                }
+                
+                // Show region in the details
+                if (countryData.region) {
+                    const regionName = language === 'arabic' ? 
+                        countryData.region.ar : countryData.region.en;
+                    
+                    // Show region in the details
+                    document.getElementById('infoRegion').textContent = regionName;
+                }
+                
+                // Generate country map outline
+                generateCountryMap(countryCode, countryName);
+                
+                // Show the map quiz section
+                setTimeout(() => {
+                    document.getElementById('mapQuiz').classList.add('visible');
+                }, 500);
+                
+                // For other fields, still fetch from API for additional info
+                fetchAdditionalInfo(countryName);
+            } else {
+                // Fallback to API if we don't have local data
+                fetchFromAPI(countryName);
+            }
+        }
+        
+        // Reset map quiz state
+        function resetMapQuiz() {
+            document.getElementById('mapResult').textContent = '';
+            document.getElementById('mapResult').className = 'map-result';
+            document.getElementById('showAnswerBtn').disabled = false;
+            document.getElementById('guessCorrectBtn').disabled = false;
+        }
+        
+        // Initialize map quiz
+        function initMapQuiz() {
+            // Add event listener to show answer button
+            document.getElementById('showAnswerBtn').addEventListener('click', function() {
+                // Show the target country info immediately
+                const correctFlag = document.querySelector(`[data-code="${targetCode}"]`);
+                if (correctFlag) {
+                    correctFlag.classList.add('correct');
+                }
+                
+                // Show more detailed information
+                fetchCountryInfo(targetCountry);
+                
+                // Disable buttons
+                this.disabled = true;
+                document.getElementById('guessCorrectBtn').disabled = true;
+            });
+            
+            // Add event listener to "I know it" button
+            document.getElementById('guessCorrectBtn').addEventListener('click', function() {
+                // Show success message
+                document.getElementById('mapResult').textContent = language === 'arabic' ? 
+                    'رائع! لقد تعرفت على الخريطة بشكل صحيح!' : 
+                    'Great! You correctly identified the map!';
+                document.getElementById('mapResult').className = 'map-result visible correct';
+                
+                // Increment score
+                score += 2; // More points for map recognition
+                document.getElementById('score').textContent = score;
+                updateProgress();
+                
+                // Show the correct flag
+                const correctFlag = document.querySelector(`[data-code="${targetCode}"]`);
+                if (correctFlag) {
+                    correctFlag.classList.add('correct');
+                }
+                
+                // Show more detailed information after a short delay
+                setTimeout(() => {
+                    fetchCountryInfo(targetCountry);
+                }, 1000);
+                
+                // Disable buttons
+                this.disabled = true;
+                document.getElementById('showAnswerBtn').disabled = true;
+            });
+        }
+        
+        // Generate a country outline map
+        function generateCountryMap(countryCode, countryName) {
+            console.log("Generating map for country:", countryName, "with code:", countryCode);
+            
+            const mapContainer = document.getElementById('map-container');
+            if (!mapContainer) {
+                console.error("Map container element not found!");
+                return;
+            }
+            
+            console.log("Map container found, clearing contents");
+            mapContainer.innerHTML = '';
+            
+            // Create outline container
+            const outlineElement = document.createElement('div');
+            outlineElement.className = 'country-outline';
+            
+            // Create an image element
+            const img = document.createElement('img');
+            img.src = `/static/flags/${countryCode}.png`;
+            img.alt = `Silhouette of ${countryName}`;
+            img.style.cssText = `
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                filter: brightness(0.1) contrast(3) grayscale(1) invert(1) drop-shadow(0 0 5px #000);
+                opacity: 0.9;
+                mix-blend-mode: exclusion;
+            `;
+            
+            // Add country name as a data attribute (for debugging)
+            outlineElement.setAttribute('data-country', countryName);
+            
+            // Add elements to container
+            outlineElement.appendChild(img);
+            mapContainer.appendChild(outlineElement);
+            
+            // Add some styling to the map container for better visibility
+            mapContainer.style.backgroundColor = '#222';
+            mapContainer.style.boxShadow = '0 0 20px rgba(0,0,0,0.3)';
+        }
+        
+        // Update progress bar
+        function updateProgress() {
+            progressValue = Math.min(Math.round((score / totalCountries) * 100), 100);
+            document.getElementById('progressBar').style.width = progressValue + '%';
+            document.getElementById('progressBar').textContent = `${progressValue}% (${score}/${totalCountries})`;
+        }
+        
+        // Fetch additional info from API
+        function fetchAdditionalInfo(countryName) {
+            fetch(`https://restcountries.com/v3.1/name/${encodeURIComponent(countryName)}?fullText=true`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Country info not available');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const country = data[0];
+                        
+                        // Update details that aren't in our local data
+                        document.getElementById('infoCapital').textContent = country.capital ? country.capital[0] : 'N/A';
+                        
+                        // Region
+                        const regionText = country.region || 'N/A';
+                        const regionMap = {
+                            'Africa': 'أفريقيا',
+                            'Americas': 'الأمريكتين',
+                            'Asia': 'آسيا',
+                            'Europe': 'أوروبا',
+                            'Oceania': 'أوقيانوسيا',
+                            'Antarctic': 'القارة القطبية الجنوبية'
+                        };
+                        document.getElementById('infoRegion').textContent = language === 'arabic' ? 
+                            (regionMap[regionText] || regionText) : regionText;
+                        
+                        // Languages
+                        let languagesText = 'N/A';
+                        try {
+                            if (country.languages) {
+                                const languages = Object.values(country.languages);
+                                if (languages.length > 0) {
+                                    languagesText = language === 'arabic' ? 
+                                        languages.join('، ') : // Arabic comma
+                                        languages.join(', ');
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error formatting languages:', e);
+                        }
+                        document.getElementById('infoLanguage').textContent = languagesText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching additional country info:', error);
+                    document.getElementById('infoCapital').textContent = 'N/A';
+                    document.getElementById('infoRegion').textContent = 'N/A';
+                    document.getElementById('infoLanguage').textContent = 'N/A';
+                });
+        }
+        
+        // Fallback to API for all data
+        function fetchFromAPI(countryName) {
+            fetch(`https://restcountries.com/v3.1/name/${encodeURIComponent(countryName)}?fullText=true`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Country info not available');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const country = data[0];
+                        
+                        // Update flag and name
+                        document.getElementById('infoFlag').src = country.flags.png || '';
+                        document.getElementById('infoName').textContent = language === 'arabic' ? 
+                            (country.translations.ara ? country.translations.ara.common : country.name.common) : 
+                            country.name.common;
+                            
+                        // Generate country map outline if possible
+                        if (country.cca2) {
+                            const countryCode = country.cca2.toLowerCase();
+                            generateCountryMap(countryCode, country.name.common);
+                            
+                            // Show the map quiz section
+                            setTimeout(() => {
+                                document.getElementById('mapQuiz').classList.add('visible');
+                            }, 500);
+                        }
+                        
+                        // Update details
+                        document.getElementById('infoCapital').textContent = country.capital ? country.capital[0] : 'N/A';
+                        
+                        // Format currency - simplified approach
+                        let currencyText = 'N/A';
+                        if (country.currencies) {
+                            try {
+                                // Get currency codes
+                                const currencyCodes = Object.keys(country.currencies);
+                                
+                                if (currencyCodes.length > 0) {
+                                    // Simple Arabic translations for common currencies
+                                    if (language === 'arabic') {
+                                        // Map for Arabic translations
+                                        const arabicNames = {
+                                            'USD': 'دولار أمريكي',
+                                            'EUR': 'يورو',
+                                            'GBP': 'جنيه إسترليني',
+                                            'JPY': 'ين ياباني',
+                                            'AED': 'درهم إماراتي',
+                                            'SAR': 'ريال سعودي'
+                                        };
+                                        
+                                        // Simplified mapping with fallback
+                                        const translations = currencyCodes.map(code => {
+                                            const symbol = country.currencies[code].symbol || '';
+                                            return arabicNames[code] || code;
+                                        });
+                                        
+                                        currencyText = translations.join('، ');
+                                    } else {
+                                        // English format
+                                        const formatted = currencyCodes.map(code => {
+                                            const currency = country.currencies[code];
+                                            return `${currency.name || code} (${currency.symbol || ''})`;
+                                        });
+                                        
+                                        currencyText = formatted.join(', ');
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Error formatting currency:', e);
+                                currencyText = Object.keys(country.currencies).join(', ');
+                            }
+                        }
+                        document.getElementById('infoCurrency').textContent = currencyText;
+                        
+                        // Region
+                        const regionText = country.region || 'N/A';
+                        const regionMap = {
+                            'Africa': 'أفريقيا',
+                            'Americas': 'الأمريكتين',
+                            'Asia': 'آسيا',
+                            'Europe': 'أوروبا',
+                            'Oceania': 'أوقيانوسيا',
+                            'Antarctic': 'القارة القطبية الجنوبية'
+                        };
+                        document.getElementById('infoRegion').textContent = language === 'arabic' ? 
+                            (regionMap[regionText] || regionText) : regionText;
+                        
+                        // Languages
+                        let languagesText = 'N/A';
+                        try {
+                            if (country.languages) {
+                                const languages = Object.values(country.languages);
+                                if (languages.length > 0) {
+                                    languagesText = language === 'arabic' ? 
+                                        languages.join('، ') : // Arabic comma
+                                        languages.join(', ');
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error formatting languages:', e);
+                        }
+                        document.getElementById('infoLanguage').textContent = languagesText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching country info:', error);
+                    document.getElementById('infoName').textContent = language === 'arabic' ? 
+                        'المعلومات غير متوفرة' : 'Information unavailable';
+                    document.getElementById('infoCapital').textContent = 'N/A';
+                    document.getElementById('infoCurrency').textContent = 'N/A';
+                    document.getElementById('infoRegion').textContent = 'N/A';
+                    document.getElementById('infoLanguage').textContent = 'N/A';
+                });
+        }
+        
+        // Check if the answer is correct
+        function checkAnswer(code) {
+            const statusMessage = document.getElementById('statusMessage');
+            const flagElement = document.querySelector(`[data-code="${code}"]`);
+            const selectedCountry = flagElement.getAttribute('data-country');
+            
+            // Mark as answered to prevent multiple clicks
+            answered = true;
+            attempts++;
+            
+            if (code === targetCode) {
+                // Correct answer!
+                flagElement.classList.add('correct');
+                
+                // Add points
+                const pointsEarned = attempts === 1 ? 2 : 1; // More points for getting it on first try
+                score += pointsEarned;
+                
+                // Add to correctFlags array to track answered flags
+                if (!correctFlags.includes(code)) {
+                    correctFlags.push(code);
+                }
+                
+                // Update score display
+                document.getElementById('score').textContent = score;
+                
+                // Show success message
+                const mapResult = document.getElementById('mapResult');
+                mapResult.textContent = language === 'arabic' ? 
+                    `صحيح! أحسنت! +${pointsEarned} نقطة` : 
+                    `Correct! Well done! +${pointsEarned} point${pointsEarned > 1 ? 's' : ''}`;
+                mapResult.className = 'map-result visible correct';
+                
+                // Update progress bar
+                progressValue = Math.min(Math.round((score / totalCountries) * 100), 100);
+                document.getElementById('progressBar').style.width = progressValue + '%';
+                document.getElementById('progressBar').textContent = `${progressValue}% (${score}/${totalCountries})`;
+                
+                // Show country info after a brief delay
+                setTimeout(() => {
+                    // Fill and show the country info panel
+                    displayCountryInfo(targetCountry);
+                }, 1500);
+                
+            } else {
+                // Wrong answer
+                flagElement.classList.add('wrong');
+                
+                // Show error message
+                const mapResult = document.getElementById('mapResult');
+                mapResult.textContent = language === 'arabic' ? 
+                    'غير صحيح، حاول مرة أخرى' : 
+                    'Incorrect, try again';
+                mapResult.className = 'map-result visible';
+                
+                // Show hint button after first wrong attempt
+                if (attempts === 1) {
+                    document.getElementById('showHintBtn').style.display = 'inline-block';
+                }
+                
+                // If too many attempts, show the correct answer
+                if (attempts >= 3) {
+                    // Highlight the correct flag
+                    const correctFlag = document.querySelector(`[data-code="${targetCode}"]`);
+                    if (correctFlag) {
+                        correctFlag.classList.add('correct');
+                    }
+                    
+                    // Update message
+                    mapResult.textContent = language === 'arabic' ? 
+                        `الإجابة الصحيحة هي ${targetCountry}` : 
+                        `The correct answer is ${targetCountry}`;
+                    
+                    // Show country info after delay
+                    setTimeout(() => {
+                        displayCountryInfo(targetCountry);
+                    }, 2000);
+                } else {
+                    // Allow another attempt
+                    answered = false;
+                }
+            }
+        }
+        
+        // Display country information
+        function displayCountryInfo(countryName) {
+            const countryInfo = document.getElementById('countryInfo');
+            const countriesData = {{ countries|tojson }};
+            const countryData = countriesData[countryName];
+            
+            if (countryData) {
+                // Set flag and name
+                document.getElementById('infoFlag').src = `/static/flags/${countryData.code}.png`;
+                document.getElementById('infoName').textContent = language === 'arabic' ? 
+                    countryData.arabic : countryName;
+                
+                // Set region info
+                if (countryData.region) {
+                    const regionName = language === 'arabic' ? 
+                        countryData.region.ar : countryData.region.en;
+                    document.getElementById('infoRegion').textContent = regionName;
+                } else {
+                    document.getElementById('infoRegion').textContent = 'N/A';
+                }
+                
+                // Set currency info
+                if (countryData.currency) {
+                    const currencyCode = countryData.currency.code;
+                    const currencyName = language === 'arabic' ? 
+                        countryData.currency.name.ar : countryData.currency.name.en;
+                    document.getElementById('infoCurrency').textContent = `${currencyName} (${currencyCode})`;
+                } else {
+                    document.getElementById('infoCurrency').textContent = 'N/A';
+                }
+                
+                // Fetch additional info from API
+                fetchAdditionalInfo(countryName);
+            }
+            
+            // Show the panel
+            countryInfo.style.display = 'block';
+        }
+        
+        // Go to next question
+        function nextQuestion() {
+            // Reset state
+            answered = false;
+            attempts = 0;
+            
+            // Submit answer to server to get next question
+            submitAnswer(targetCode, true);
+        }
+
+        // Submit answer to server
+        function submitAnswer(code, isCorrect) {
+            showLoading();
+            fetch('/check_answer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `country=${code}&correct=${isCorrect}`
+            }).then(response => response.json())
+              .then(data => {
+                  // Update without page reload
+                  updateGame(data);
+                  hideLoading();
+              });
+        }
+        
+        // Update game with new data
+        function updateGame(data) {
+            targetCountry = data.target;
+            targetArabic = data.target_arabic;
+            targetCode = data.target_code;
+            document.getElementById('targetCountry').textContent = targetCountry;
+            document.getElementById('targetArabic').textContent = targetArabic;
+            
+            // Hide country info
+            document.getElementById('countryInfo').style.display = 'none';
+            
+            // Update map container with new country outline
+            document.getElementById('map-container').innerHTML = `
+                <div class="country-outline">
+                    <img src="/static/flags/${targetCode}.png"
+                         alt="Country silhouette"
+                         style="width: 100%; height: 100%; object-fit: contain; filter: brightness(0.1) contrast(3) grayscale(1) invert(1) drop-shadow(0 0 5px #000); opacity: 0.9; mix-blend-mode: exclusion;">
+                </div>
+            `;
+            document.getElementById('mapResult').textContent = '';
+            document.getElementById('mapResult').className = 'map-result';
+            
+            // Hide hint button and text
+            document.getElementById('showHintBtn').style.display = 'none';
+            document.getElementById('hintText').className = 'hint-text';
+            document.getElementById('hintText').textContent = '';
+            
+            // Reset flags
+            const flagContainer = document.getElementById('flagContainer');
+            flagContainer.innerHTML = '';
+            
+            // Add new flags
+            data.current_flags.forEach(code => {
+                const flagWrapper = document.createElement('div');
+                flagWrapper.className = 'flag-wrapper';
+                
+                const flag = document.createElement('img');
+                // Only apply the correct class if at 100% progress threshold
+                const isCorrect = correctFlags.includes(code);
+                flag.className = 'flag';
+                
+                if (isCorrect && progressValue >= 100) {
+                    flag.classList.add('correct');
+                }
+                
+                // Use local flag if available or from the API
+                const flagUrl = data.flag_urls && data.flag_urls[code] ? 
+                    data.flag_urls[code] : 
+                    '{{ FLAG_API.format("{}") }}'.replace('{}', code);
+                
+                // Find the country name for this code
+                const countryName = findCountryByCode(code);
+                
+                flag.src = flagUrl;
+                flag.setAttribute('data-code', code);
+                flag.setAttribute('data-country', countryName);
+                flag.setAttribute('alt', 'Flag');
+                flag.setAttribute('loading', 'lazy');
+                
+                flagWrapper.appendChild(flag);
+                flagContainer.appendChild(flagWrapper);
+            });
+            
+            // Reset state
+            answered = false;
+            document.getElementById('statusMessage').textContent = '';
+            
+            // Reset game state
+            answered = false;
+            attempts = 0;
+            
+            // Generate new country map outline
+            const countriesData = {{ countries|tojson }};
+            if (countriesData[targetCountry]) {
+                generateCountryMap(countriesData[targetCountry].code, targetCountry);
+            }
+            
+            // Re-initialize click handlers
+            document.querySelectorAll('.flag').forEach(flag => {
+                flag.addEventListener('click', function() {
+                    if (answered) return;
+                    const code = this.getAttribute('data-code');
+                    checkAnswer(code);
+                });
+            });
+        }
+        
+        // Helper function to find country name by code
+        function findCountryByCode(code) {
+            // Create a countries object from the server data
+            const countriesData = {{ countries|tojson }};
+            
+            // Find the country with the matching code
+            for (const [countryName, data] of Object.entries(countriesData)) {
+                if (data.code === code) {
+                    return countryName;
+                }
+            }
+            
+            return "Unknown";
+        }
+    </script>
+</body>
+</html>

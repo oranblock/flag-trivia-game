@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interactive World Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f8ff;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .debug-info {
+            background-color: #e0e0e0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: left;
+            display: inline-block;
+        }
+        .map-container {
+            width: 100%;
+            max-width: 900px;
+            height: 500px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .action-button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .action-button:hover {
+            background-color: #45a049;
+        }
+        .stats-panel {
+            margin: 20px auto;
+            max-width: 500px;
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .progress-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 5px;
+            transition: width 0.5s;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            font-weight: bold;
+        }
+        .country-achievement {
+            background-color: rgba(0, 128, 0, 0.1);
+            border-left: 4px solid #4CAF50;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 0 5px 5px 0;
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+        .country-achievement:hover {
+            background-color: rgba(0, 128, 0, 0.2);
+        }
+        .achievement-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+        }
+        .info {
+            padding: 6px 8px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: white;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+        }
+        .info h4 {
+            margin: 0 0 5px;
+            color: #777;
+        }
+        .legend {
+            line-height: 18px;
+            color: #555;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interactive World Map</h1>
+    
+    <div class="debug-info">
+        <p><strong>Target Country:</strong> {{ country }}</p>
+        <p><strong>Country Code:</strong> {{ country_code }}</p>
+    </div>
+    
+    <h2>Discover Countries Around the World</h2>
+    
+    <div class="map-container" id="world-map"></div>
+    
+    <div style="margin: 20px 0;">
+        <button id="highlight-target" class="action-button">Highlight Target Country</button>
+        <button id="reset-countries" class="action-button">Reset All Countries</button>
+        <button id="zoom-out" class="action-button">Zoom Out</button>
+    </div>
+    
+    <div class="stats-panel">
+        <h3>Your Exploration Progress</h3>
+        <div id="progress-container" class="progress-container">
+            <div id="progress-bar" class="progress-bar" style="width: 0%">0%</div>
+        </div>
+        <p><span id="countries-visited">0</span> countries visited out of <span id="total-countries">196</span></p>
+        
+        <h3>Recent Discoveries</h3>
+        <div id="achievements-list">
+            <!-- Achievements will be added here -->
+        </div>
+        
+        <h3>Debug Information</h3>
+        <div id="debug-info" style="margin-top: 10px; background: #f5f5f5; padding: 5px; border: 1px solid #ddd; font-size: 12px; text-align: left; max-height: 200px; overflow-y: auto;"></div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <script>
+        // Add error handler
+        window.onerror = function(message, source, lineno, colno, error) {
+            logDebug(`ERROR: ${message} at line ${lineno}:${colno}`, true);
+            console.error(message, error);
+            return false;
+        };
+        
+        // Parse country data from Flask with error handling
+        let COUNTRIES_DATA = {};
+        let visitedCountries = new Set();
+        let targetCountry = '';
+        let map;
+        
+        // Update debug info
+        function logDebug(message, isError = false) {
+            console.log(message);
+            
+            // Also display in the debug-info div
+            const debugInfo = document.getElementById('debug-info');
+            if (debugInfo) {
+                const timestamp = new Date().toLocaleTimeString();
+                const className = isError ? 'style="color:red"' : '';
+                debugInfo.innerHTML += `<div ${className}>[${timestamp}] ${message}</div>`;
+                
+                // Auto-scroll to bottom
+                debugInfo.scrollTop = debugInfo.scrollHeight;
+            }
+        }
+        
+        // COUNTRIES data with coordinates
+        const COUNTRY_COORDS = {
+            'US': {lat: 37.0902, lng: -95.7129, zoom: 4},
+            'FR': {lat: 46.2276, lng: 2.2137, zoom: 6},
+            'JP': {lat: 36.2048, lng: 138.2529, zoom: 5},
+            'BR': {lat: -14.2350, lng: -51.9253, zoom: 4},
+            'ZA': {lat: -30.5595, lng: 22.9375, zoom: 5},
+            'AU': {lat: -25.2744, lng: 133.7751, zoom: 4},
+            'EG': {lat: 26.8206, lng: 30.8025, zoom: 6},
+            'IN': {lat: 20.5937, lng: 78.9629, zoom: 4},
+            'CA': {lat: 56.1304, lng: -106.3468, zoom: 3},
+            'DE': {lat: 51.1657, lng: 10.4515, zoom: 6},
+            'GB': {lat: 55.3781, lng: -3.4360, zoom: 5},
+            'CN': {lat: 35.8617, lng: 104.1954, zoom: 4},
+            'RU': {lat: 61.5240, lng: 105.3188, zoom: 3},
+            'MX': {lat: 23.6345, lng: -102.5528, zoom: 5}
+        };
+        
+        try {
+            COUNTRIES_DATA = JSON.parse('{{ countries|safe }}');
+            logDebug(`Successfully parsed COUNTRIES_DATA: ${Object.keys(COUNTRIES_DATA).length} countries`);
+        } catch (e) {
+            logDebug(`Failed to parse countries data: ${e.message}`, true);
+        }
+        
+        try {
+            visitedCountries = new Set(JSON.parse('{{ visited|safe }}'));
+            logDebug(`Successfully parsed visited countries: ${visitedCountries.size} visited`);
+        } catch (e) {
+            logDebug(`Failed to parse visited countries: ${e.message}`, true);
+        }
+        
+        targetCountry = '{{ country_code }}';
+        logDebug(`Target country: ${targetCountry}`);
+        
+        // Update the progress bar
+        function updateProgress() {
+            const totalCountries = 196; // Total number of countries in the world
+            const visitedCount = visitedCountries.size;
+            const percentage = Math.round((visitedCount / totalCountries) * 100);
+            
+            document.getElementById('progress-bar').style.width = percentage + '%';
+            document.getElementById('progress-bar').textContent = percentage + '%';
+            document.getElementById('countries-visited').textContent = visitedCount;
+        }
+        
+        // Add a country achievement
+        function addAchievement(countryCode, countryName) {
+            const achievementsList = document.getElementById('achievements-list');
+            
+            const achievement = document.createElement('div');
+            achievement.className = 'country-achievement';
+            achievement.setAttribute('data-country', countryCode);
+            achievement.innerHTML = `
+                <span class="achievement-badge">✓</span>
+                <strong>${countryName}</strong> discovered!
+            `;
+            
+            // Add to the beginning of the list
+            achievementsList.insertBefore(achievement, achievementsList.firstChild);
+            
+            // Limit to 5 most recent achievements
+            if (achievementsList.children.length > 5) {
+                achievementsList.removeChild(achievementsList.lastChild);
+            }
+        }
+        
+        // Visit a country
+        function visitCountry(countryCode) {
+            if (!visitedCountries.has(countryCode)) {
+                // Add to visited set locally
+                visitedCountries.add(countryCode);
+                
+                // Find the country name
+                let countryName = countryCode;
+                Object.entries(COUNTRIES_DATA).forEach(([name, data]) => {
+                    if (data.code === countryCode) {
+                        countryName = name;
+                    }
+                });
+                
+                // Add achievement
+                addAchievement(countryCode, countryName);
+                
+                // Send to server
+                fetch('/visit_country', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ country_code: countryCode }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    logDebug(`Visited ${countryCode}`);
+                })
+                .catch((error) => {
+                    logDebug(`Error visiting country: ${error}`, true);
+                });
+                
+                // Update progress
+                updateProgress();
+            }
+        }
+        
+        // Reset countries
+        function resetCountries() {
+            visitedCountries.clear();
+            
+            fetch('/reset_countries', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                logDebug('Reset all countries');
+                
+                // Clear achievements list
+                document.getElementById('achievements-list').innerHTML = '';
+                
+                // Update progress
+                updateProgress();
+            })
+            .catch((error) => {
+                logDebug(`Error resetting countries: ${error}`, true);
+            });
+        }
+        
+        // Initialize the map
+        function initMap() {
+            try {
+                logDebug('Starting map initialization with Leaflet...');
+                
+                // Check if Leaflet is loaded
+                if (typeof L === 'undefined') {
+                    logDebug('ERROR: Leaflet is not loaded', true);
+                    document.getElementById('world-map').innerHTML = 
+                        '<div style="color:red; padding:20px;">Error: Leaflet library not loaded</div>';
+                    return;
+                }
+                
+                logDebug('Leaflet is loaded');
+                
+                // Initialize the map centered on the world
+                map = L.map('world-map').setView([20, 0], 2);
+                
+                // Add custom CartoDB Voyager tile layer with no labels
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                }).addTo(map);
+                
+                // Create markers for each country
+                Object.entries(COUNTRIES_DATA).forEach(([countryName, data]) => {
+                    const countryCode = data.code;
+                    const coords = COUNTRY_COORDS[countryCode];
+                    
+                    if (coords) {
+                        // Different styles based on country status
+                        let markerColor = '#3388ff'; // Default blue
+                        
+                        if (visitedCountries.has(countryCode)) {
+                            markerColor = '#76c893'; // Green for visited
+                        } else if (countryCode === targetCountry) {
+                            markerColor = '#ffb703'; // Yellow for target
+                        }
+                        
+                        // Create marker (larger size but no labels)
+                        const marker = L.circleMarker([coords.lat, coords.lng], {
+                            radius: 10,
+                            fillColor: markerColor,
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map);
+                        
+                        // The popup only shows when clicking the marker
+                        marker.bindPopup(`
+                            <div style="text-align:center">
+                                <h3>${countryName}</h3>
+                                <p>${visitedCountries.has(countryCode) ? 'Discovered' : 'Undiscovered'}</p>
+                                ${!visitedCountries.has(countryCode) ? '<button id="visit-btn" style="padding:5px 10px; background:#4CAF50; color:white; border:none; border-radius:3px; cursor:pointer;">Discover</button>' : ''}
+                            </div>
+                        `);
+                        
+                        // Add click event
+                        marker.on('click', function() {
+                            if (countryCode === targetCountry) {
+                                logDebug(`Clicked on target country: ${countryName}`);
+                            }
+                        });
+                        
+                        // Add popup event for the "Discover" button
+                        marker.on('popupopen', function() {
+                            const visitBtn = document.getElementById('visit-btn');
+                            if (visitBtn) {
+                                visitBtn.addEventListener('click', function() {
+                                    visitCountry(countryCode);
+                                    marker.setStyle({fillColor: '#76c893'});
+                                    marker.closePopup();
+                                });
+                            }
+                        });
+                    }
+                });
+                
+                // Add info panel to the map
+                const info = L.control();
+                
+                info.onAdd = function(map) {
+                    this._div = L.DomUtil.create('div', 'info');
+                    this.update();
+                    return this._div;
+                };
+                
+                info.update = function() {
+                    this._div.innerHTML = `
+                        <h4>World Explorer</h4>
+                        <p>Target Country: <strong>{{ country }}</strong></p>
+                        <p>Countries Discovered: <strong>${visitedCountries.size}</strong></p>
+                    `;
+                };
+                
+                info.addTo(map);
+                
+                // Add legend to the map
+                const legend = L.control({position: 'bottomright'});
+                
+                legend.onAdd = function(map) {
+                    const div = L.DomUtil.create('div', 'info legend');
+                    div.innerHTML = `
+                        <h4>Legend</h4>
+                        <div><i style="background:#76c893"></i> Discovered</div>
+                        <div><i style="background:#ffb703"></i> Target Country</div>
+                        <div><i style="background:#3388ff"></i> Undiscovered</div>
+                    `;
+                    return div;
+                };
+                
+                legend.addTo(map);
+                
+                logDebug('Map initialized successfully');
+                updateProgress();
+                
+            } catch (error) {
+                logDebug(`ERROR initializing map: ${error.message}`, true);
+                console.error('Map initialization error:', error);
+                document.getElementById('world-map').innerHTML = 
+                    `<div style="color:red; padding:20px;">Error initializing map: ${error.message}</div>`;
+            }
+        }
+        
+        // When page is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            logDebug('Document loaded and ready');
+            
+            // Initialize map
+            initMap();
+            
+            // Button event listeners
+            document.getElementById('highlight-target').addEventListener('click', function() {
+                const coords = COUNTRY_COORDS[targetCountry];
+                if (coords && map) {
+                    map.setView([coords.lat, coords.lng], coords.zoom);
+                    logDebug(`Highlighting target: ${targetCountry}`);
+                } else {
+                    logDebug('Error: Map not initialized or target country not found', true);
+                }
+            });
+            
+            document.getElementById('reset-countries').addEventListener('click', function() {
+                resetCountries();
+            });
+            
+            document.getElementById('zoom-out').addEventListener('click', function() {
+                if (map) {
+                    map.setView([20, 0], 2);
+                    logDebug('Zoomed out to world view');
+                } else {
+                    logDebug('Error: Map not initialized', true);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
