@@ -1,0 +1,74 @@
+# GitHub Setup Instructions
+
+To push this repository to your GitHub account, follow these steps:
+
+## Option 1: Clone and Push to a new repository (Recommended)
+
+1. Download this directory as a ZIP file and extract it to your local computer
+
+2. Navigate to the extracted directory in your terminal or command prompt:
+   ```
+   cd path/to/extracted/game/folder
+   ```
+
+3. Create a new repository on GitHub at https://github.com/new
+   - Name it something like "flag-trivia-game"
+   - Do not initialize with README, .gitignore, or license
+
+4. Add your GitHub repository as a remote:
+   ```
+   git remote add origin https://github.com/yourusername/flag-trivia-game.git
+   ```
+
+5. Push the code to your repository:
+   ```
+   git push -u origin master
+   ```
+
+## Option 2: Using SSH Authentication
+
+If you prefer to use SSH authentication:
+
+1. Ensure you have SSH keys set up with GitHub
+   - Check GitHub's documentation: https://docs.github.com/en/authentication/connecting-to-github-with-ssh
+
+2. Add your GitHub repository as a remote using SSH:
+   ```
+   git remote add origin git@github.com:yourusername/flag-trivia-game.git
+   ```
+
+3. Push the code to your repository:
+   ```
+   git push -u origin master
+   ```
+
+## Option 3: Starting fresh with this code
+
+If you want to start fresh with this code:
+
+1. Create a new repository on GitHub at https://github.com/new
+
+2. Clone your new empty repository:
+   ```
+   git clone https://github.com/yourusername/flag-trivia-game.git
+   cd flag-trivia-game
+   ```
+
+3. Copy all the files from this directory to your cloned repository
+
+4. Add, commit and push the files:
+   ```
+   git add .
+   git commit -m "Initial commit of Flag Trivia Game with Interactive World Map"
+   git push -u origin master
+   ```
+
+## After Pushing
+
+After successfully pushing to GitHub:
+
+1. Visit your repository URL: https://github.com/yourusername/flag-trivia-game
+
+2. Verify all files have been uploaded correctly
+
+3. You can now clone this repository to any other device or share it with others
