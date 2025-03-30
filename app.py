@@ -748,6 +748,12 @@ def flags_status():
         'total': len(COUNTRIES)
     })
 
+# Roadmap page
+@app.route('/roadmap')
+def roadmap():
+    """Display the game development roadmap"""
+    return render_template('roadmap.html')
+
 # World Map Routes
 
 @app.route('/world_map')

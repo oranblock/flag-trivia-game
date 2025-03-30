@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flag Trivia - Development Roadmap</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        
+        header {
+            background-color: #3498db;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2, h3, h4 {
+            color: #2c3e50;
+        }
+        
+        .category {
+            margin-bottom: 30px;
+            border-left: 5px solid #3498db;
+            padding-left: 15px;
+        }
+        
+        .task-list {
+            padding-left: 20px;
+        }
+        
+        .subtask-list {
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .checkbox {
+            margin-right: 10px;
+        }
+        
+        .completed {
+            text-decoration: line-through;
+            color: #7f8c8d;
+        }
+        
+        .task {
+            margin-bottom: 10px;
+        }
+        
+        .subtask {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .mp-spec {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .mp-rules {
+            list-style-type: decimal;
+            padding-left: 20px;
+        }
+        
+        .mp-reqs {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            height: 20px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            border-radius: 5px;
+            background-color: #2ecc71;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .back-button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-bottom: 20px;
+            transition: background-color 0.3s;
+        }
+        
+        .back-button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Flag Trivia Game - Development Roadmap</h1>
+    </header>
+    
+    <main>
+        <a href="/" class="back-button">Back to Game</a>
+        
+        <div id="progress-section">
+            <h2>Overall Progress</h2>
+            <div class="progress-container">
+                <div id="overall-progress" class="progress-bar"></div>
+            </div>
+            <p id="progress-text">Loading progress...</p>
+        </div>
+        
+        <div id="roadmap-content">
+            Loading roadmap data...
+        </div>
+    </main>
+    
+    <script>
+        // Fetch the roadmap data
+        fetch('/static/data/game_plan.json')
+            .then(response => response.json())
+            .then(data => {
+                renderRoadmap(data);
+                calculateProgress(data);
+            })
+            .catch(error => {
+                document.getElementById('roadmap-content').innerHTML = 
+                    `<p>Error loading roadmap data: ${error.message}</p>`;
+            });
+        
+        // Render the roadmap content
+        function renderRoadmap(data) {
+            let content = `
+                <h2>${data.title}</h2>
+                <p>Last updated: ${data.last_updated}</p>
+            `;
+            
+            // Render the features sections
+            data.features.forEach(feature => {
+                content += `
+                    <div class="category">
+                        <h3>${feature.name}</h3>
+                        <p>${feature.description}</p>
+                        <div class="task-list">
+                `;
+                
+                // Render the tasks for this feature
+                feature.tasks.forEach(task => {
+                    content += `
+                        <div class="task">
+                            <h4>${task.name}</h4>
+                            <p>${task.description}</p>
+                            <div class="subtask-list">
+                    `;
+                    
+                    // Render the subtasks
+                    task.subtasks.forEach(subtask => {
+                        const checkStatus = subtask.completed ? 'checked' : '';
+                        const textClass = subtask.completed ? 'completed' : '';
+                        
+                        content += `
+                            <div class="subtask">
+                                <input type="checkbox" class="checkbox" ${checkStatus} disabled>
+                                <span class="${textClass}">${subtask.name}</span>
+                            </div>
+                        `;
+                    });
+                    
+                    content += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                content += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Render multiplayer specifications
+            content += `
+                <div class="category">
+                    <h3>Multiplayer Specifications</h3>
+                    
+                    <div class="mp-spec">
+                        <h4>${data.multiplayer_specifications.head_to_head_mode.name}</h4>
+                        <p>${data.multiplayer_specifications.head_to_head_mode.description}</p>
+                        <h5>Rules:</h5>
+                        <ul class="mp-rules">
+            `;
+            
+            data.multiplayer_specifications.head_to_head_mode.rules.forEach(rule => {
+                content += `<li>${rule}</li>`;
+            });
+            
+            content += `
+                        </ul>
+                        
+                        <h5>Scoring:</h5>
+                        <p>Base points for correct answer: ${data.multiplayer_specifications.head_to_head_mode.scoring.correct_answer}</p>
+                        <p>Time bonuses:</p>
+                        <ul class="mp-reqs">
+                            <li>Under 3 seconds: +${data.multiplayer_specifications.head_to_head_mode.scoring.time_bonus.under_3_seconds} points</li>
+                            <li>Under 5 seconds: +${data.multiplayer_specifications.head_to_head_mode.scoring.time_bonus.under_5_seconds} points</li>
+                            <li>Under 10 seconds: +${data.multiplayer_specifications.head_to_head_mode.scoring.time_bonus.under_10_seconds} points</li>
+                        </ul>
+                        <p>Hint penalty: -${data.multiplayer_specifications.head_to_head_mode.scoring.hint_penalty} points</p>
+                        <p>Incorrect answer penalty: -${data.multiplayer_specifications.head_to_head_mode.scoring.incorrect_answer_penalty} points</p>
+                    </div>
+                    
+                    <div class="mp-spec">
+                        <h4>${data.multiplayer_specifications.marathon_mode.name}</h4>
+                        <p>${data.multiplayer_specifications.marathon_mode.description}</p>
+                        <h5>Rules:</h5>
+                        <ul class="mp-rules">
+            `;
+            
+            data.multiplayer_specifications.marathon_mode.rules.forEach(rule => {
+                content += `<li>${rule}</li>`;
+            });
+            
+            content += `
+                        </ul>
+                        
+                        <h5>Difficulty Progression:</h5>
+                        <ul class="mp-reqs">
+            `;
+            
+            data.multiplayer_specifications.marathon_mode.difficulty_progression.forEach(level => {
+                content += `<li>Flags ${level.flags}: ${level.difficulty} (×${level.points_multiplier} points)</li>`;
+            });
+            
+            content += `
+                        </ul>
+                        
+                        <h5>Scoring Formula:</h5>
+                        <p>Base points: ${data.multiplayer_specifications.marathon_mode.scoring.base_points}</p>
+                        <p>Time factor: ${data.multiplayer_specifications.marathon_mode.scoring.time_factor}</p>
+                        <p>Accuracy bonus: ${data.multiplayer_specifications.marathon_mode.scoring.accuracy_bonus}</p>
+                        <p>Hint penalty: ${data.multiplayer_specifications.marathon_mode.scoring.hint_penalty} points per hint</p>
+                        <p>Final score: ${data.multiplayer_specifications.marathon_mode.scoring.final_formula}</p>
+                    </div>
+                    
+                    <div class="mp-spec">
+                        <h4>Technical Requirements</h4>
+                        <h5>Backend:</h5>
+                        <ul class="mp-reqs">
+            `;
+            
+            data.multiplayer_specifications.technical_requirements.backend.forEach(req => {
+                content += `<li>${req}</li>`;
+            });
+            
+            content += `
+                        </ul>
+                        
+                        <h5>Frontend:</h5>
+                        <ul class="mp-reqs">
+            `;
+            
+            data.multiplayer_specifications.technical_requirements.frontend.forEach(req => {
+                content += `<li>${req}</li>`;
+            });
+            
+            content += `
+                        </ul>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('roadmap-content').innerHTML = content;
+        }
+        
+        // Calculate and display overall progress
+        function calculateProgress(data) {
+            let totalSubtasks = 0;
+            let completedSubtasks = 0;
+            
+            data.features.forEach(feature => {
+                feature.tasks.forEach(task => {
+                    task.subtasks.forEach(subtask => {
+                        totalSubtasks++;
+                        if (subtask.completed) {
+                            completedSubtasks++;
+                        }
+                    });
+                });
+            });
+            
+            const progressPercentage = totalSubtasks > 0 ? 
+                Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+            
+            document.getElementById('overall-progress').style.width = `${progressPercentage}%`;
+            document.getElementById('progress-text').textContent = 
+                `${completedSubtasks} of ${totalSubtasks} tasks completed (${progressPercentage}%)`;
+        }
+    </script>
+</body>
+</html>
